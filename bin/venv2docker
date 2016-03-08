@@ -12,7 +12,7 @@ venv=
 projectpath=
 projectdir=
 base="debian:jessie"
-entrypoint="/bin/bash"
+entrypoint=
 no_image=false
 push_image=false
 run_image=false
@@ -74,7 +74,7 @@ show_help() {
     echo "More examples:"
     echo
     echo "1)  venv2docker --push --base=ubuntu:15.10 --command=app.py \\"
-    echo "        --name=testrepo/test:latest --args='1,--foo=blah,--bar=@var'"
+    echo "        --name=testrepo/test:latest --args='1,--foo=blah,--bar=$var'"
     echo
     echo "    Creates an image from the currently active virtual env, using ubuntu 15.10"
     echo "    as the base image, setting 'start.sh' as the startup command, with the"
@@ -86,7 +86,7 @@ show_help() {
     echo "    hub if the build succeeds."
     echo
     echo
-    echo "2)  venv2docker --base=debian:jessie --ports='80,443' \\"
+    echo "2)  venv2docker --base=debian:jessie --ports=80,443 \\"
     echo "        --name=testrepo/app:latest --env='var=1,var1=2' foobar"
     echo
     echo "    Creates an image from the foobar virtualenv using debian:jessie as the"
@@ -313,7 +313,6 @@ emit_dockerfile_pip_reqs() {
             cd ${cwd}
             exit 1
         fi
-        dockerfile+=(" ")
         unset pip_path
     fi
 }
@@ -431,7 +430,22 @@ emit_dockerfile_paths() {
 # create the commands to specify the entrypoint, if any,
 # and command line args, if any
 emit_dockerfile_entrypoint() {
-    echo "Creating entrypoint..."
+    if [ ! -z "${entrypoint}" ]; then
+        echo "Creating entrypoint..."
+        dockerfile+=(" ")
+        dockerfile+=("# entrypoint and arguments")
+        epcmd="ENTRYPOINT [\"${entrypoint}\""
+        if [ ! -z "${args}" ]; then
+            args_split=($(echo ${args} | tr "," "\n"))
+            for arg in ${args_split[@]}; do
+                epcmd=${epcmd}", \"${arg}\""
+            done
+            unset args_split
+        fi
+        epcmd=${epcmd}"]"
+        dockerfile+=("${epcmd}")
+        unset epcmd
+    fi
 }
 
 # runs the process to generate and write out the dockerfile according

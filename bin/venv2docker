@@ -397,7 +397,10 @@ emit_dockerfile_ports() {
     fi
 }
 
-# create the commands to set the python and system paths
+# create the commands to set the python and system paths from
+# the paths collected during processing (sys_paths and python_paths
+# arrays) as well as paths passed on the command line (paths and
+# pypaths)
 emit_dockerfile_paths() {
     echo "Setting PATH and PYTHONPATH ..."
     dockerfile+=(" ")
@@ -489,25 +492,23 @@ emit_dockerfile() {
 
 # executes the docker build command to create the image from the
 # generated dockerfile
-
-# $(DOCKER_BUILD) --tag=$(REGISTRY_BASE)/jobber-base:$(TAG) --rm=true --force-rm=true base | tee base/image-build.log
-# --rm=true --force-rm=true
-
 build_image() {
-    if [ -f "${projectpath}/${dockerdir}/Dockerfile" ]; then
-        echo "Building docker image ..."
-        docker build --tag=${image_name}:${tag} --rm=true --force-rm=true .
-        if [ $? == 0 ]; then
-            echo "Image build completed"
+    if [ ! $no_image ]; then
+        if [ -f "${projectpath}/${dockerdir}/Dockerfile" ]; then
+            echo "Building docker image ..."
+            docker build --tag=${image_name}:${tag} --rm=true --force-rm=true .
+            if [ $? == 0 ]; then
+                echo "Image build completed"
+            else
+                echo "Error: image build failed"
+                cd ${cwd}
+                exit 1
+            fi
         else
-            echo "Error: image build failed"
+            echo "Error: dockerfile not found; exiting build."
             cd ${cwd}
             exit 1
         fi
-    else
-        echo "Error: dockerfile not found; exiting build."
-        cd ${cwd}
-        exit 1
     fi
 }
 

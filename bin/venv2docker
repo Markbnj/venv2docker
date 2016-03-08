@@ -35,6 +35,8 @@ cwd=$(pwd)
 sys_paths=()
 python_paths=()
 clean_only=false
+user=
+workdir=
 
 # display the main help screen, if a command name is passed include specific help
 # for that command
@@ -77,6 +79,8 @@ show_help() {
     printf "\t-r, --run\t\t\t\tLaunch the image after building.\n"
     printf "\t-s, --skip-image\t\tGenerate the dockerfile but skip building.\n"
     printf "\t-t, --tag=TAG\t\t\tUse TAG as the tag for the built image.\n"
+    printf "\t-u, --user=USER\t\t\tChange to USER before running entrypoint.\n"
+    printf "\t-w, --workdir=DIR\t\tChange to DIR before running entrypoint.\n"
     echo
     echo "More examples:"
     echo
@@ -514,6 +518,34 @@ emit_dockerfile_paths() {
     fi
 }
 
+# if the caller has passed the -u/--user argument create the
+# command to set the user in the image
+emit_dockerfile_user() {
+    if [ ! -z "${user}" ]; then
+        echo "Setting USER ..."
+        dockerfile+=(" ")
+        dockerfile+=("# set user")
+        dockerfile+=("USER ${user}")
+    fi
+}
+
+# if the caller has passed the -w/--workdir argument create
+# the command to set the workdir to the passed value, otherwise
+# set it to the project root.
+emit_dockerfile_workdir() {
+    echo "Setting WORKDIR ..."
+    dockerfile+=(" ")
+    dockerfile+=("# set working directory")
+    setcmd="WORKDIR "
+    if [ ! -z "${workdir}" ]; then
+        setcmd=${setcmd}${workdir}
+    else
+        setcmd=${setcmd}${bin_path}${projectdir}
+    fi
+    dockerfile+=("${setcmd}")
+    unset setcmd
+}
+
 # create the commands to specify the entrypoint, if any,
 # and command line args, if any
 emit_dockerfile_entrypoint() {
@@ -547,6 +579,8 @@ emit_dockerfile() {
     emit_dockerfile_ports
     emit_dockerfile_paths
     emit_dockerfile_pip_reqs
+    emit_dockerfile_user
+    emit_dockerfile_workdir
     emit_dockerfile_entrypoint
 
     if $(echo "# venv2docker generated dockerfile" > ${projectpath}/${dockerdir}/Dockerfile); then
@@ -636,7 +670,7 @@ make_image() {
 tabs 4
 
 # parse out the options
-OPTS=$(getopt -o b:ce:hn:prst: --long apt:,args:,base:,bin-path:,clean,command:,dockerdir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,no-dangling,no-log,paths:,pip:,ports:,push,pypaths:,skip-image,tag: -- "$@")
+OPTS=$(getopt -o b:ce:hn:prst:u:w: --long apt:,args:,base:,bin-path:,clean,command:,dockerdir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,no-dangling,no-log,paths:,pip:,ports:,push,pypaths:,skip-image,tag:,user:,workdir: -- "$@")
 if [[ $? -ne 0 ]]; then
     echo "Error: failed to parse command line options."
     exit 1
@@ -736,6 +770,14 @@ while true; do
             ;;
         -t|--tag)
             tag="$2"
+            shift; shift
+            ;;
+        -u|--user)
+            user="$2"
+            shift; shift
+            ;;
+        -w|--workdir)
+            workdir="$2"
             shift; shift
             ;;
         --)

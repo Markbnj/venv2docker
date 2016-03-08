@@ -6,31 +6,58 @@
 
 version="0.0.1"
 venv_root="${HOME}/.virtualenvs/"
+image_name=
+tag="latest"
+venv=
+projectpath=
+projectdir=
+base="debian:jessie"
+entrypoint="/bin/bash"
+no_image=false
+push_image=false
+run_image=false
+args=
+ports=
+envs=
+dockerdir=".docker"
+dockerfile=
+maintainer=
+bin_path="/usr/local/bin/"
+lib_path="/usr/local/lib/"
+apt=
+pypaths=
+cwd=$(pwd)
+sys_paths=()
+python_paths=()
 
-# display help for the 'make' subcommand
-help_make() {
-    echo "COMMAND: make"
+# display the main help screen, if a command name is passed include specific help
+# for that command
+show_help() {
+    echo "venv2docker ${version}"
     echo
-    echo "venv2docker make [OPTION]... [VIRTUALENV]"
+    echo "USAGE: venv2docker [OPTION]... [VIRTUALENV]"
     echo
-    echo "Create a new docker image from an existing virtualenv"
+    echo "Create docker images built from an existing virtualenv environment."
+    echo
+    echo "If VIRTUALENV is not supplied and a virtualenv is currently active"
+    echo "then that venv will be used."
+    echo
     echo "Example:"
-    echo "    venv2docker make --name=myrepo/test testenv"
+    echo "    venv2docker --name=myrepo/test testenv"
     echo
     echo "Creates a docker image from the 'testenv' virtualenv and commits"
     echo "it to myrepo/test."
-    echo
-    echo "If the -p/--push argument is supplied then REPO must also be specified."
     echo
     echo "Options:"
     printf "\t--apt=PACKAGES\t\t\tUse apt-get to install PACKAGES at build.\n"
     printf "\t--apt=FILE\t\t\t\tInstall each package in FILE at build.\n"
     printf "\t-a,--args=ARGS\t\t\tPass ARGS to entrypoint command line.\n"
     printf "\t-b,--base=BASE\t\t\tUse BASE as the base image.\n"
+    printf "\t--bin_path=PATH\t\tInstall the project folder to PATH in the image.\n"
     printf "\t-c,--command=COMMAND\tExecute COMMAND as entrypoint at startup.\n"
     printf "\t--dockerdir=DIR\t\t\tUse DIR for build files (defaults to .docker).\n"
     printf "\t-e,--env=ENV\t\t\tSet variables in ENV inside image.\n"
-    printf "\t-i,--installdir=DIR\t\tInstall the project folder to DIR in the image.\n"
+    printf "\t--lib_path=PATH\t\tInstall the project dependencies to PATH in the image.\n"
     printf "\t--maintainer=NAME\t\tUse NAME as the maintainer string in the image.\n"
     printf "\t-n,--name=NAME\t\t\tUse NAME as the committed image name.\n"
     printf "\t-p,--push\t\t\t\tPush the image to the Docker hub after building.\n"
@@ -38,11 +65,11 @@ help_make() {
     printf "\t--pypaths=PATHS\t\t\tAdd relative or absolute PATHS to python path.\n"
     printf "\t-r,--run\t\t\t\tLaunch the image after building.\n"
     printf "\t-s,--skip-image\t\t\tGenerate the dockerfile but skip building.\n"
-    printf "\t-t,--tag=TAG\t\t\tUse TAG as the tag for the built image."
+    printf "\t-t,--tag=TAG\t\t\tUse TAG as the tag for the built image.\n"
     echo
     echo "More examples:"
     echo
-    echo "1)  venv2docker make --push --base=ubuntu:15.10 --command=app.py \\"
+    echo "1)  venv2docker --push --base=ubuntu:15.10 --command=app.py \\"
     echo "        --name=testrepo/test:latest --args='1,--foo=blah,--bar=@var'"
     echo
     echo "    Creates an image from the currently active virtual env, using ubuntu 15.10"
@@ -55,85 +82,18 @@ help_make() {
     echo "    hub if the build succeeds."
     echo
     echo
-    echo "2)  venv2docker make --base=debian:jessie --ports='80,443' \\"
+    echo "2)  venv2docker --base=debian:jessie --ports='80,443' \\"
     echo "        --name=testrepo/app:latest --env='var=1,var1=2' foobar"
     echo
     echo "    Creates an image from the foobar virtualenv using debian:jessie as the"
     echo "    base image, exposing ports 80 and 443, and setting the environment variables"
     echo "    'var' and 'var2' to 1 and 2 respectively, inside the image."
-}
-
-# display help for the 'run' subcommand
-help_run() {
-    echo "COMMAND: run"
     echo
-    echo "venv2docker run [[REPO/]IMAGE_NAME[:TAG]]"
-    echo
-    echo "Run an existing virtualenv docker image"
-    echo "Example:"
-    echo "    venv2docker run myrepo/test"
-    echo
-    echo "Runs the specified docker image and opens an interactive shell in it."
-    echo
-    echo "Options:"
-    printf "\tNone\n"
-}
-
-# display help for the 'remove' subcommand
-help_remove() {
-    echo "COMMAND: remove"
-    echo
-    echo "venv2docker remove [[REPO/]IMAGE_NAME[:TAG]]"
-    echo
-    echo "Remove an existing virtualenv docker image"
-    echo "Example:"
-    echo "    venv2docker remove myrepo/test"
-    echo
-    echo "Removes the specified virtualenv docker image."
-    echo
-    echo "Options:"
-    printf "\tNone\n"
-}
-
-# display the main help screen, if a command name is passed include specific help
-# for that command
-show_help() {
-    echo "venv2docker ${version}"
-    echo
-    echo "USAGE: venv2docker COMMAND [OPTION]... [VIRTUALENV] [[REPO/]IMAGE_NAME[:TAG]]"
-    echo
-    echo "Create, run, and deploy docker images built from an existing virtualenv"
-    echo "environment."
-    echo
-    echo "If VIRTUALENV is not supplied and a virtualenv is currently active"
-    echo "then that venv will be migrated."
-    echo
-    echo "If IMAGE_NAME is not supplied then the name of the virtualenv will be used for"
-    echo "the image name."
-    echo
-    if [ ! -z "$2" ]; then
-        case $2 in
-            "make"|"mk")
-                help_make
-                ;;
-            "run")
-                help_run
-                ;;
-            "remove"|"rm")
-                help_remove
-                ;;
-            *)
-                echo "No help available for command: ${2}."
-                exit 1
-                ;;
-        esac
+    if [ ! -z "${1}" ]; then
+        exit $1
     else
-        echo "COMMANDS: make, run, remove"
-        echo
-        echo "For help on a specific command use 'venv2docker help <command>'"
+        exit 0
     fi
-    echo
-    exit $1
 }
 
 # check to make sure the docker command is available, display an
@@ -150,7 +110,7 @@ ensure_docker() {
 
 # check to be sure we were passed a valid venv, otherwise detect
 # the current active venv, set venv to the full path to the environment
-make_ensure_venv() {
+ensure_venv() {
     target_venv="$venv"
     if [ ! -z "${target_venv}" ]; then
         path="${venv_root}${target_venv}"
@@ -172,8 +132,9 @@ make_ensure_venv() {
     fi
 }
 
-make_clean_build() {
-    # TBD look for and clean out any orphaned temps
+# if the docker build directory already exists get rid of anything
+# we're going to recreate on this run.
+clean_build() {
     echo "Running clean on ${projectpath}/${dockerdir} ..."
     if [ -f "${projectpath}/${dockerdir}/*.gz" ]; then
         echo "Removing archive files ..."
@@ -188,16 +149,20 @@ make_clean_build() {
 
 # stage the project directories to tmp, create the docker directory, and then
 # pack the project and system files into the docker directory.
-make_setup_build() {
+setup_build() {
     # stage the project files in tmp
-    tmpdir=$(mktemp -d)
-    mkdir ${tmpdir}/${projectdir}
-    echo "Staging ${projectpath} to ${tmpdir} ..."
-    if $(cp -R ${projectpath}/* ${tmpdir}/${projectdir}); then
-        echo "${projectpath} complete"
+    if [ -d "${projectpath}" ]; then
+        tmpdir=$(mktemp -d)
+        mkdir ${tmpdir}/${projectdir}
+        echo "Staging ${projectpath} to ${tmpdir} ..."
+        if $(cp -R ${projectpath}/* ${tmpdir}/${projectdir}); then
+            echo "${projectpath} complete"
+        else
+            echo "Error: failed to copy ${projectpath} to ${tmpdir}/${projectdir}; check directory and file permissions."
+            exit 1
+        fi
     else
-        echo "Error: failed to copy ${projectpath} to ${tmpdir}/${projectdir}; check directory and file permissions."
-        exit 1
+        echo "Warning: ${projectpath} not found; skipping"
     fi
 
     # create the build folder if we don't have it, otherwise run
@@ -206,156 +171,200 @@ make_setup_build() {
         echo "Creating build directory ..."
         mkdir ${projectpath}/${dockerdir}
     else
-        make_clean_build
+        clean_build
     fi
 
-    echo "Packing project files ..."
-    if $(tar cfP - ${tmpdir}/${projectdir} | gzip > ${projectpath}/${dockerdir}/${projectdir}.tar.gz); then
-        echo "${tmpdir}/${projectdir} complete"
-    else
-        echo "Error: failed to pack ${tmpdir}/${projectdir}; check directory and file permissions."
-        exit 1
-    fi
-
-    echo "Removing temporary files ..."
-    if $(rm -rf ${tmpdir}/${projectdir}); then
-        echo "Temporary files in ${tmpdir}/${projectdir} removed"
-    else
-        echo "Warning: unable to remove staging folder ${tmpdir}/${projectdir}"
+    if [ -d "${tmpdir}/${projectdir}" ]; then
+        echo "Packing project files ..."
+        if $(tar cfP - ${tmpdir}/${projectdir} | gzip > ${projectpath}/${dockerdir}/${projectdir}.tar.gz); then
+            echo "${tmpdir}/${projectdir} complete"
+        else
+            echo "Error: failed to pack ${tmpdir}/${projectdir}; check directory and file permissions."
+            exit 1
+        fi
+        echo "Removing temporary files ..."
+        if $(rm -rf ${tmpdir}/${projectdir}); then
+            echo "Temporary files in ${tmpdir}/${projectdir} removed"
+        else
+            echo "Warning: unable to remove staging folder ${tmpdir}/${projectdir}"
+        fi
     fi
 
     echo "Packing system files ..."
-    if $(tar cfP - ${venv}/bin | gzip > ${projectpath}/${dockerdir}/venv_bin.tar.gz); then
-        echo "${venv}/bin complete"
+    if [ -d "${venv}/bin" ]; then
+        if $(tar cfP - ${venv}/bin | gzip > ${projectpath}/${dockerdir}/venv_bin.tar.gz); then
+            echo "${venv}/bin complete"
+        else
+            echo "Error: failed to pack ${venv}/bin; check directory and file permissions."
+            exit 1
+        fi
     else
-        echo "Error: failed to pack ${venv}/bin; check directory and file permissions."
-        exit 1
+        echo "Warning: ${venv}/bin not found; skipping"
     fi
 
-    if $(tar cfP - ${venv}/lib | gzip > ${projectpath}/${dockerdir}/venv_lib.tar.gz); then
-        echo "${venv}/lib complete"
+    if [ -d "${venv}/lib" ]; then
+        if $(tar cfP - ${venv}/lib | gzip > ${projectpath}/${dockerdir}/venv_lib.tar.gz); then
+            echo "${venv}/lib complete"
+        else
+            echo "Error: failed to pack ${venv}/lib; check directory and file permissions."
+            exit 1
+        fi
     else
-        echo "Error: failed to pack ${venv}/lib; check directory and file permissions."
-        exit 1
+        echo "Warning: ${venv}/lib not found; skipping"
     fi
 
-    if $(tar cfP - ${venv}/local/lib | gzip > ${projectpath}/${dockerdir}/venv_local_lib.tar.gz); then
-        echo "${venv}/local/lib complete"
+    if [ -d "${venv}/local/lib" ]; then
+        if $(tar cfP - ${venv}/local/lib | gzip > ${projectpath}/${dockerdir}/venv_local_lib.tar.gz); then
+            echo "${venv}/local/lib complete"
+        else
+            echo "Error: failed to pack ${venv}/local/lib; check directory and file permissions."
+            exit 1
+        fi
     else
-        echo "Error: failed to pack ${venv}/local/lib; check directory and file permissions."
-        exit 1
+        echo "Warning: ${venv}/local/lib not found; skipping"
     fi
     echo "System files completed"
 }
 
-# implements the 'make' subcommand
-make_image() {
-    local image_name=
-    local tag="latest"
-    local venv=
-    local projectpath=
-    local projectdir=
-    local base="debian:jessie"
-    local entrypoint="/bin/bash"
-    local no_image=false
-    local push_image=false
-    local run_image=false
-    local args=
-    local ports=
-    local envs=
-    local dockerdir=".docker"
-    local dockerfile=
-    local maintainer=
-    local installdir="/usr/local/bin/"
-    local apt=
-    local pypaths=
+emit_dockerfile_header() {
+    echo "Generating header ..."
+    dockerfile=("#")
+    dockerfile+=("# generated on: $(date)")
+    dockerfile+=("#")
+    dockerfile+=("# project path: ${projectpath}")
+    dockerfile+=("# venv path: ${venv}")
+    dockerfile+=("# image name: ${image_name}")
+    dockerfile+=("# script version: ${version}")
+    dockerfile+=("#")
+    dockerfile+=("# This file will be recreated if venv2docker is run again, so be")
+    dockerfile+=("# sure to preserve any edits separately.")
+    dockerfile+=(" ")
+    dockerfile+=("FROM ${base}")
+    if [ ! -z "${maintainer}" ]; then
+        dockerfile+=("MAINTAINER ${maintainer}")
+    fi
+}
 
-    # parse out the options
-    OPTS=$(getopt -o a:b:c:e:i:n:prst: --long apt:,args:,base:,command:,dockerdir:,env:,installdir:,maintainer:,name:,ports:,push,pypaths:,skip-image,tag: -- "$@")
-    if [[ $? -ne 0 ]]; then
-        echo "Error: failed to parse command line options."
+# if there are apt commands in $apt then figure out if they
+# are package names or a file path and act accordingly
+emit_dockerfile_apt_reqs() {
+    if [ ! -z "${apt}" ]; then
+        dockerfile+=(" ")
+        dockerfile+=("# apt dependencies")
+        dockerfile+=("RUN apt-get update -y")
+        installcmd="RUN apt-get install -y"
+        if [[ $apt == "/*" ]]; then
+            apt_path=$apt
+        else
+            apt_path=$projectpath/$apt
+        fi
+        if [ -f "${apt_path}" ]; then
+            echo "Adding apt packages in ${apt_path} ..."
+            for package in $(cat ${apt_path}); do
+                installcmd=${installcmd}" ${package}"
+            done
+        else
+            echo "Adding apt packages from command line ..."
+            apt_split=($(echo ${apt} | tr "," "\n"))
+            for package in ${apt_split[@]}; do
+                installcmd=${installcmd}" ${package}"
+            done
+            unset apt_split
+        fi
+        dockerfile+=("${installcmd}")
+        unset installcmd
+    fi
+}
+
+# create the dockerfile commands to migrate and unpack the code
+# and dependencies, and in the process save updates to the system
+# and python paths
+emit_dockerfile_install_commands() {
+    echo "Creating project install commands ..."
+    dockerfile+=(" ")
+    dockerfile+=("# python project and dependencies")
+    if [ -f "${projectdir}.tar.gz" ]; then
+        echo "Adding ${projectdir}.tar.gz"
+        dockerfile+=("ADD ${projectdir}.tar.gz ${bin_path}")
+        dockerfile+=("RUN cd ${bin_path} && tar xvfz ${projectdir}.tar.gz --stripcomponents=2")
+        sys_paths+=("${bin_path}${projectdir}")
+        python_paths+=("${bin_path}${projectdir}")
+    fi
+    dockerfile+=("RUN mkdir -p ${lib_path}${projectdir}")
+    if [ -f "venv_bin.tar.gz" ]; then
+        echo "Adding venv_bin.tar.gz"
+        dockerfile+=("ADD venv_bin.tar.gz ${lib_path}${projectdir}")
+        dockerfile+=("RUN cd ${lib_path}${projectdir} && tar xvfz venv_bin.tar.gz --stripcomponents=2")
+        python_paths+=("${lib_path}${projectdir}/bin")
+    fi
+    if [ -f "venv_lib.tar.gz" ]; then
+        echo "Adding venv_lib.tar.gz"
+        dockerfile+=("ADD venv_lib.tar.gz ${lib_path}${projectdir}")
+        dockerfile+=("RUN cd ${lib_path}${projectdir} && tar xvfz venv_lib.tar.gz --stripcomponents=2")
+        python_paths+=("${lib_path}${projectdir}/lib")
+    fi
+    if [ -f "venv_local_lib.tar.gz" ]; then
+        echo "Adding venv_local_lib.tar.gz"
+        dockerfile+=("ADD venv_local_lib.tar.gz ${lib_path}${projectdir}")
+        dockerfile+=("RUN cd ${lib_path}${projectdir} && tar xvfz venv_local_lib.tar.gz --stripcomponents=2")
+        python_paths+=("${lib_path}${projectdir}/local/lib")
+    fi
+}
+
+# create the dockerfile commands to set environment variables in the
+# image
+emit_dockerfile_env_vars() {
+    if [ ! -z "${envs}" ]; then
+        echo "Setting environment variables ..."
+        dockerfile+=(" ")
+        dockerfile+=("# environment variables")
+        env_split=($(echo ${envs} | tr "," "\n"))
+        for env_pair in ${env_split[@]}; do
+           var_split=($(echo ${env_pair} | tr "=" "\n"))
+           dockerfile+=("ENV ${var_split[0]} ${var_split[1]}")
+        done
+        unset env_split
+    fi
+}
+
+# create the dockerfile commands to expose any ports required
+emit_dockerfile_ports() {
+    if [ ! -z "${ports}" ]; then
+        echo "Exposing ports ..."
+        dockerfile+=(" ")
+        dockerfile+=("# exposed ports")
+        port_split=($(echo ${ports} | tr "," "\n"))
+        for port in ${port_split[@]}; do
+           dockerfile+=("EXPOSE ${port}")
+        done
+        unset env_split
+    fi
+}
+
+emit_dockerfile() {
+    echo "Creating dockerfile ..."
+    IFS=$'\n'
+    emit_dockerfile_header
+    emit_dockerfile_apt_reqs
+    emit_dockerfile_install_commands
+    emit_dockerfile_env_vars
+    emit_dockerfile_ports
+
+    if $(echo "# venv2docker generated dockerfile" > ${projectpath}/${dockerdir}/Dockerfile); then
+        for line in ${dockerfile[@]}; do
+            printf "${line}\n" >> ${projectpath}/${dockerdir}/Dockerfile
+        done
+        echo "${projectpath}/${dockerdir}/Dockerfile created"
+    else
+        echo "Error: failed to write ${projectpath}/${dockerdir}/Dockerfile; check file and directory permissions."
         exit 1
     fi
+}
 
-    eval set -- "$OPTS"
-    while true; do
-        case "$1" in
-            --apt)
-                apt="$2"
-                shift; shift
-                ;;
-            -a|--args)
-                args="$2"
-                shift; shift
-                ;;
-            -b|--base)
-                base="$2"
-                shift; shift
-                ;;
-            -c|--command)
-                entrypoint="$2"
-                shift; shift
-                ;;
-            --dockerdir)
-                dockerdir="$2"
-                shift; shift
-                ;;
-            -e|--env)
-                envs="$2"
-                shift; shift
-                ;;
-            -i|--installdir)
-                installdir="$2"
-                shift; shift
-                ;;
-            --maintainer)
-                maintainer="$2"
-                shift; shift
-                ;;
-            -n|--name)
-                image_name="$2"
-                shift; shift
-                ;;
-            --ports)
-                ports="$2"
-                shift; shift
-                ;;
-            -p|--push)
-                push_image=true
-                shift
-                ;;
-            --pypaths)
-                pypaths="$2"
-                shift; shift
-                ;;
-            -r|--run)
-                run_image=true
-                shift
-                ;;
-            -s|--skip-image)
-                no_image=true
-                shift
-                ;;
-            -t|--tag)
-                tag="$2"
-                shift; shift
-                ;;
-            --)
-                shift
-                if [ ! -z "$1" ]; then
-                    venv="$1"
-                fi
-                break
-                ;;
-            *)
-                echo "Error: unknown option '${1}'"
-                help 1
-                ;;
-        esac
-    done
-
+# runs the build process
+make_image() {
     ensure_docker
-    make_ensure_venv
+    ensure_venv
 
     # get the project directory from the virtualenv
     projectpath=$(cat ${venv}/.project)
@@ -374,9 +383,10 @@ make_image() {
         unset venv_split
     fi
 
-    make_setup_build
-
-
+    setup_build
+    echo "Entering directory ${projectpath}/${dockerdir}"
+    cd ${projectpath}/${dockerdir}
+    emit_dockerfile
 
     # generate the dockerfile (add commands and path setting)
     # copy the dependencies into the context
@@ -399,40 +409,116 @@ make_image() {
     echo "envs: ${envs}"
     echo "dockerdir: ${dockerdir}"
     echo "maintainer: ${maintainer}"
-    echo "installdir: ${installdir}"
+    echo "bin_path: ${bin_path}"
+    echo "lib_path: ${lib_path}"
     echo "apt: ${apt}"
     echo "pypaths: ${pypaths}"
     echo "==================================="
     echo
-}
-
-run_image() {
-    echo "$@"
-}
-
-remove_image() {
-    echo "$@"
+    cd ${cwd}
 }
 
 # set tabs = 4
 tabs 4
 
-# the first argument must be the command to execute
-case $1 in
-    "make"|"mk")
-        make_image "${@:2}"
-        ;;
-    "run")
-        run_image "${@:2}"
-        ;;
-    "remove"|"rm")
-        remove_image "${@:2}"
-        ;;
-    "help"|"-h"|"--help")
-        show_help 0 $2
-        ;;
-    *)
-        echo "Error: missing or malformed command name."
-        echo
-        help 1
-esac
+# parse out the options
+OPTS=$(getopt -o a:b:c:e:hn:prst: --long apt:,args:,base:,bin-path:,command:,dockerdir:,env:,help,lib-path:,maintainer:,name:,ports:,push,pypaths:,skip-image,tag: -- "$@")
+if [[ $? -ne 0 ]]; then
+    echo "Error: failed to parse command line options."
+    exit 1
+fi
+
+eval set -- "$OPTS"
+while true; do
+    case "$1" in
+        --apt)
+            apt="$2"
+            shift; shift
+            ;;
+        -a|--args)
+            args="$2"
+            shift; shift
+            ;;
+        -b|--base)
+            base="$2"
+            shift; shift
+            ;;
+        --bin-path)
+            bin_path="$2"
+            if [[ ${bin_path} != "*/" ]]; then
+                bin_path=${bin_path}"/"
+            fi
+            shift; shift
+            ;;
+        -c|--command)
+            entrypoint="$2"
+            shift; shift
+            ;;
+        --dockerdir)
+            dockerdir="$2"
+            shift; shift
+            ;;
+        -e|--env)
+            envs="$2"
+            shift; shift
+            ;;
+        -h|--help)
+            show_help
+            ;;
+        --lib-path)
+            lib_path="$2"
+            if [[ ${lib_path} != "*/" ]]; then
+                lib_path=${lib_path}"/"
+            fi
+            shift; shift
+            ;;
+        --maintainer)
+            maintainer="$2"
+            shift; shift
+            ;;
+        -n|--name)
+            image_name="$2"
+            shift; shift
+            ;;
+        --ports)
+            ports="$2"
+            shift; shift
+            ;;
+        -p|--push)
+            push_image=true
+            shift
+            ;;
+        --pypaths)
+            pypaths="$2"
+            shift; shift
+            ;;
+        -r|--run)
+            run_image=true
+            shift
+            ;;
+        -s|--skip-image)
+            no_image=true
+            shift
+            ;;
+        -t|--tag)
+            tag="$2"
+            shift; shift
+            ;;
+        --)
+            shift
+            if [ ! -z "$1" ]; then
+                venv="$1"
+            fi
+            break
+            ;;
+        *)
+            echo "Error: unknown option '${1}'"
+            help 1
+            ;;
+    esac
+done
+
+echo
+echo "venv2docker ${version}"
+echo
+make_image

@@ -17,6 +17,7 @@ no_image=false
 push_image=false
 run_image=false
 rem_old_image=false
+debug=false
 log_build=true
 log_name="build.log"
 args=
@@ -63,6 +64,7 @@ show_help() {
     printf "\t-b, --base=BASE\t\t\tUse BASE as the base image.\n"
     printf "\t--bin_path=PATH\t\t\tInstall the project folder to PATH in the image.\n"
     printf "\t-c, --clean\t\t\t\tPerform build clean step and exit\n."
+    printf "\t-d, --debug\t\t\t\tPrint diagnostic information after build.\n"
     printf "\t--dockerdir=DIR\t\t\tUse DIR for build files (defaults to .venv2docker).\n"
     printf "\t--entrypoint=COMMAND\tExecute COMMAND as entrypoint at startup.\n"
     printf "\t-e, --env=ENV\t\t\tSet variables in ENV inside image.\n"
@@ -233,6 +235,14 @@ clean_build() {
             exit 1
         fi
     fi
+    if [ -d "${projectpath}/${dockerdir}" ]; then
+        echo "Removing build directory ..."
+        if $(rmdir ${projectpath}/${dockerdir}); then
+            echo "Build directory removed"
+        else
+            echo "Warning: failed to remove ${projectpath}/${dockerdir}; directory may not be empty"
+        fi
+    fi
 }
 
 # stage the project directories to tmp, create the docker directory, and then
@@ -255,12 +265,11 @@ setup_build() {
 
     # create the build folder if we don't have it, otherwise run
     # clean on it
-    if [ ! -d "${projectpath}/${dockerdir}" ]; then
-        echo "Creating build directory ..."
-        mkdir ${projectpath}/${dockerdir}
-    else
+    if [ -d "${projectpath}/${dockerdir}" ]; then
         clean_build
     fi
+    echo "Creating build directory ..."
+    mkdir ${projectpath}/${dockerdir}
 
     if [ -d "${tmpdir}/${projectdir}" ]; then
         echo "Packing project files ..."
@@ -639,22 +648,8 @@ build_image() {
     fi
 }
 
-# runs the build process
-make_image() {
-    # ensure that the image name is set to something reasonable
-    if [ -z "${image_name}" ]; then
-        venv_split=($(echo ${venv} | tr "/" "\n"))
-        image_name=${venv_split[ ${#venv_split[@]} -1 ]}
-        unset venv_split
-    fi
-
-    setup_build
-    echo "Entering directory ${projectpath}/${dockerdir}"
-    cd ${projectpath}/${dockerdir}
-    emit_dockerfile
-    build_image
-
-
+write_debug_info() {
+    echo
     echo "DEBUG ============================="
     echo "image name: ${image_name}"
     echo "tag: ${tag}"
@@ -681,6 +676,27 @@ make_image() {
     echo "pypaths: ${pypaths}"
     echo "==================================="
     echo
+}
+
+# runs the build process
+make_image() {
+    # ensure that the image name is set to something reasonable
+    if [ -z "${image_name}" ]; then
+        venv_split=($(echo ${venv} | tr "/" "\n"))
+        image_name=${venv_split[ ${#venv_split[@]} -1 ]}
+        unset venv_split
+    fi
+
+    setup_build
+    echo "Entering directory ${projectpath}/${dockerdir}"
+    cd ${projectpath}/${dockerdir}
+    emit_dockerfile
+    build_image
+
+    if [ "$debug" = "true" ]; then
+        write_debug_info
+    fi
+
     cd ${cwd}
 }
 
@@ -688,7 +704,7 @@ make_image() {
 tabs 4
 
 # parse out the options
-OPTS=$(getopt -o b:ce:hn:prst:u:w: --long apt:,args:,base:,bin-path:,clean,command:,dockerdir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,no-dangling,no-log,paths:,pip:,ports:,push,pypaths:,skip-image,tag:,user:,workdir: -- "$@")
+OPTS=$(getopt -o b:cde:hn:prst:u:w: --long apt:,args:,base:,bin-path:,clean,command:,debug,dockerdir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,no-dangling,no-log,paths:,pip:,ports:,push,pypaths:,skip-image,tag:,user:,workdir: -- "$@")
 if [[ $? -ne 0 ]]; then
     echo "Error: failed to parse command line options."
     exit 1
@@ -718,6 +734,10 @@ while true; do
             ;;
         -c|--clean)
             clean_only=true
+            shift
+            ;;
+        -d|--debug)
+            debug=true
             shift
             ;;
         --dockerdir)

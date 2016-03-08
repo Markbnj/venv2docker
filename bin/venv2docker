@@ -16,10 +16,13 @@ entrypoint=
 no_image=false
 push_image=false
 run_image=false
+rem_old_image=false
+log_build=true
+log_name="build.log"
 args=
 ports=
 envs=
-dockerdir=".docker"
+dockerdir=".venv2docker"
 dockerfile=
 maintainer=
 bin_path="/usr/local/bin/"
@@ -31,6 +34,7 @@ paths=
 cwd=$(pwd)
 sys_paths=()
 python_paths=()
+clean_only=false
 
 # display the main help screen, if a command name is passed include specific help
 # for that command
@@ -56,12 +60,15 @@ show_help() {
     printf "\t--args=ARGS\t\t\t\tPass ARGS to entrypoint command line.\n"
     printf "\t-b, --base=BASE\t\t\tUse BASE as the base image.\n"
     printf "\t--bin_path=PATH\t\t\tInstall the project folder to PATH in the image.\n"
+    printf "\t-c, --clean\t\t\t\tPerform build clean step and exit\n."
     printf "\t--dockerdir=DIR\t\t\tUse DIR for build files (defaults to .docker).\n"
     printf "\t--entrypoint=COMMAND\tExecute COMMAND as entrypoint at startup.\n"
     printf "\t-e, --env=ENV\t\t\tSet variables in ENV inside image.\n"
     printf "\t--lib_path=PATH\t\t\tInstall the venv directories to PATH in the image.\n"
     printf "\t--maintainer=NAME\t\tUse NAME as the maintainer string in the image.\n"
     printf "\t-n, --name=NAME\t\t\tUse NAME as the committed image name.\n"
+    printf "\t--no-dangling\t\t\tRemove an existing image before building.\n"
+    printf "\t--no-log\t\t\t\tDon't log docker build output.\n"
     printf "\t--paths=PATHS\t\t\tAdd PATHS to system path.\n"
     printf "\t--pip=FILE\t\t\t\tInstall each package in FILE at build.\n"
     printf "\t--ports=PORTS\t\t\tExpose PORTS in image.\n"
@@ -134,18 +141,64 @@ ensure_venv() {
             venv=$VIRTUAL_ENV
         fi
     fi
+    # get the project directory from the virtualenv
+    projectpath=$(cat ${venv}/.project)
+    if [ -z "${projectpath}" ]; then
+        echo "Error: could not find project home for env $venv"
+        exit 1
+    fi
+    path_split=($(echo ${projectpath} | tr "/" "\n"))
+    projectdir=${path_split[ ${#path_split[@]} -1 ]}
+    unset target_venv
+    unset path_split
 }
 
 # if the docker build directory already exists get rid of anything
 # we're going to recreate on this run.
 clean_build() {
     echo "Running clean on ${projectpath}/${dockerdir} ..."
-    if [ -f "${projectpath}/${dockerdir}/*.gz" ]; then
-        echo "Removing archive files ..."
-        if $(rm ${projectpath}/${dockerdir}/*.gz); then
-            echo "Archive files removed"
+    if [ -f "${projectpath}/${dockerdir}/${projectdir}.tar.gz" ]; then
+        echo "Removing ${projectpath}/${dockerdir}/${projectdir}.tar.gz ..."
+        if $(rm ${projectpath}/${dockerdir}/${projectdir}.tar.gz); then
+            echo "${projectpath}/${dockerdir}/${projectdir}.tar.gz removed"
         else
-            echo "Error: failed to remove files from ${projectpath}/${dockerdir}; check file and directory permissions"
+            echo "Error: failed to remove ${projectpath}/${dockerdir}/${projectdir}.tar.gz; check file and directory permissions"
+            exit 1
+        fi
+    fi
+    if [ -f "${projectpath}/${dockerdir}/venv_bin.tar.gz" ]; then
+        echo "Removing ${projectpath}/${dockerdir}/venv_bin.tar.gz ..."
+        if $(rm ${projectpath}/${dockerdir}/venv_bin.tar.gz); then
+            echo "${projectpath}/${dockerdir}/venv_bin.tar.gz removed"
+        else
+            echo "Error: failed to remove ${projectpath}/${dockerdir}/venv_bin.tar.gz; check file and directory permissions"
+            exit 1
+        fi
+    fi
+    if [ -f "${projectpath}/${dockerdir}/venv_include.tar.gz" ]; then
+        echo "Removing ${projectpath}/${dockerdir}/venv_include.tar.gz ..."
+        if $(rm ${projectpath}/${dockerdir}/venv_include.tar.gz); then
+            echo "${projectpath}/${dockerdir}/venv_include.tar.gz removed"
+        else
+            echo "Error: failed to remove ${projectpath}/${dockerdir}/venv_include.tar.gz; check file and directory permissions"
+            exit 1
+        fi
+    fi
+    if [ -f "${projectpath}/${dockerdir}/venv_lib.tar.gz" ]; then
+        echo "Removing ${projectpath}/${dockerdir}/venv_lib.tar.gz ..."
+        if $(rm ${projectpath}/${dockerdir}/venv_lib.tar.gz); then
+            echo "${projectpath}/${dockerdir}/venv_lib.tar.gz removed"
+        else
+            echo "Error: failed to remove ${projectpath}/${dockerdir}/venv_lib.tar.gz; check file and directory permissions"
+            exit 1
+        fi
+    fi
+    if [ -f "${projectpath}/${dockerdir}/venv_local_lib.tar.gz" ]; then
+        echo "Removing ${projectpath}/${dockerdir}/venv_local_lib.tar.gz ..."
+        if $(rm ${projectpath}/${dockerdir}/venv_local_lib.tar.gz); then
+            echo "${projectpath}/${dockerdir}/venv_local_lib.tar.gz removed"
+        else
+            echo "Error: failed to remove ${projectpath}/${dockerdir}/venv_local_lib.tar.gz; check file and directory permissions"
             exit 1
         fi
     fi
@@ -155,6 +208,24 @@ clean_build() {
             echo "pip requirements file removed"
         else
             echo "Error: failed to remove ${projectpath}/${dockerdir}/requirements.txt; check file and directory permissions"
+            exit 1
+        fi
+    fi
+    if [ -f "${projectpath}/${dockerdir}/build.log" ]; then
+        echo "Removing old build log ..."
+        if $(rm ${projectpath}/${dockerdir}/build.log); then
+            echo "build log removed"
+        else
+            echo "Error: failed to remove ${projectpath}/${dockerdir}/build.log; check file and directory permissions"
+            exit 1
+        fi
+    fi
+    if [ -f "${projectpath}/${dockerdir}/Dockerfile" ]; then
+        echo "Removing old dockerfile ..."
+        if $(rm ${projectpath}/${dockerdir}/Dockerfile); then
+            echo "dockerfile removed"
+        else
+            echo "Error: failed to remove ${projectpath}/${dockerdir}/Dockerfile; check file and directory permissions"
             exit 1
         fi
     fi
@@ -493,11 +564,15 @@ emit_dockerfile() {
 # executes the docker build command to create the image from the
 # generated dockerfile
 build_image() {
-    if [ ! $no_image ]; then
+    if [ "$no_image" = "false" ]; then
         if [ -f "${projectpath}/${dockerdir}/Dockerfile" ]; then
             echo "Building docker image ..."
-            docker build --tag=${image_name}:${tag} --rm=true --force-rm=true .
-            if [ $? == 0 ]; then
+            if [ "$log_build" = "true" ]; then
+                docker build --tag=${image_name}:${tag} --rm=true --force-rm=true . | tee build.log
+            else
+                docker build --tag=${image_name}:${tag} --rm=true --force-rm=true .
+            fi
+            if [ ${PIPESTATUS[0]} == 0 ]; then
                 echo "Image build completed"
             else
                 echo "Error: image build failed"
@@ -514,19 +589,6 @@ build_image() {
 
 # runs the build process
 make_image() {
-    ensure_docker
-    ensure_venv
-
-    # get the project directory from the virtualenv
-    projectpath=$(cat ${venv}/.project)
-    if [ -z "${projectpath}" ]; then
-        echo "Error: could not find project home for env $venv"
-        exit 1
-    fi
-    path_split=($(echo ${projectpath} | tr "/" "\n"))
-    projectdir=${path_split[ ${#path_split[@]} -1 ]}
-    unset path_split
-
     # ensure that the image name is set to something reasonable
     if [ -z "${image_name}" ]; then
         venv_split=($(echo ${venv} | tr "/" "\n"))
@@ -553,6 +615,8 @@ make_image() {
     echo "no_image: ${no_image}"
     echo "push_image: ${push_image}"
     echo "run_image: ${run_image}"
+    echo "rem_old_image: ${rem_old_image}"
+    echo "log_build: ${log_build}"
     echo "ports: ${ports}"
     echo "envs: ${envs}"
     echo "dockerdir: ${dockerdir}"
@@ -572,7 +636,7 @@ make_image() {
 tabs 4
 
 # parse out the options
-OPTS=$(getopt -o b:e:hn:prst: --long apt:,args:,base:,bin-path:,command:,dockerdir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,paths:,pip:,ports:,push,pypaths:,skip-image,tag: -- "$@")
+OPTS=$(getopt -o b:ce:hn:prst: --long apt:,args:,base:,bin-path:,clean,command:,dockerdir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,no-dangling,no-log,paths:,pip:,ports:,push,pypaths:,skip-image,tag: -- "$@")
 if [[ $? -ne 0 ]]; then
     echo "Error: failed to parse command line options."
     exit 1
@@ -599,6 +663,10 @@ while true; do
                 bin_path=${bin_path}"/"
             fi
             shift; shift
+            ;;
+        -c|--clean)
+            clean_only=true
+            shift
             ;;
         --dockerdir)
             dockerdir="$2"
@@ -629,6 +697,14 @@ while true; do
         -n|--name)
             image_name="$2"
             shift; shift
+            ;;
+        --no-dangling)
+            rem_old_image=true
+            shift
+            ;;
+        --no-log)
+            log_build=false
+            shift
             ;;
         --paths)
             paths="$2"
@@ -679,4 +755,10 @@ done
 echo
 echo "venv2docker ${version}"
 echo
-make_image
+ensure_docker
+ensure_venv
+if [ "$clean_only" = "true" ]; then
+    clean_build
+else
+    make_image
+fi

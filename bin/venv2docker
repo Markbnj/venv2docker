@@ -331,13 +331,15 @@ emit_dockerfile_env_vars() {
 emit_dockerfile_ports() {
     if [ ! -z "${ports}" ]; then
         echo "Exposing ports ..."
-        dockerfile+=(" ")
-        dockerfile+=("# exposed ports")
+        exposecmd="EXPOSE"
         port_split=($(echo ${ports} | tr "," "\n"))
         for port in ${port_split[@]}; do
-           dockerfile+=("EXPOSE ${port}")
+            exposecmd=${exposecmd}" ${port}"
         done
-        unset env_split
+        unset port_split
+        dockerfile+=(" ")
+        dockerfile+=("# exposed ports")
+        dockerfile+=("${exposecmd}")
     fi
 }
 

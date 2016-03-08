@@ -31,14 +31,10 @@ and there is a lot of work still to be done there.
 ## Prerequisites
 
 venv2docker requires docker to be installed, of course. If you don't have it
-you can [get it here][1].
+you can [get it here][https://docs.docker.com/linux/step_one/].
 
-A working python and [virtualenv][2] installation is also required.
+A working python and [virtualenv][https://virtualenv.readthedocs.org/en/latest/]
+installation is also required.
 
 ## Use
 
-
-
-
-[1] https://docs.docker.com/linux/step_one/
-[2] https://virtualenv.readthedocs.org/en/latest/

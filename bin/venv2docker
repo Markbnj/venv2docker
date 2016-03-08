@@ -189,7 +189,7 @@ setup_build() {
 
     if [ -d "${tmpdir}/${projectdir}" ]; then
         echo "Packing project files ..."
-        if $(tar cfP - ${tmpdir}/${projectdir} | gzip > ${projectpath}/${dockerdir}/${projectdir}.tar.gz); then
+        if $(tar cfP - ${tmpdir}/${projectdir} --exclude=*.pyc | gzip > ${projectpath}/${dockerdir}/${projectdir}.tar.gz); then
             echo "${tmpdir}/${projectdir} complete"
         else
             echo "Error: failed to pack ${tmpdir}/${projectdir}; check directory and file permissions."
@@ -205,7 +205,7 @@ setup_build() {
 
     echo "Packing system files ..."
     if [ -d "${venv}/bin" ]; then
-        if $(tar cfP - ${venv}/bin | gzip > ${projectpath}/${dockerdir}/venv_bin.tar.gz); then
+        if $(tar cfP - ${venv}/bin --exclude=*.pyc | gzip > ${projectpath}/${dockerdir}/venv_bin.tar.gz); then
             echo "${venv}/bin complete"
         else
             echo "Error: failed to pack ${venv}/bin; check directory and file permissions."
@@ -216,7 +216,7 @@ setup_build() {
     fi
 
     if [ -d "${venv}/lib" ]; then
-        if $(tar cfP - ${venv}/lib | gzip > ${projectpath}/${dockerdir}/venv_lib.tar.gz); then
+        if $(tar cfP - ${venv}/lib --exclude=*.pyc | gzip > ${projectpath}/${dockerdir}/venv_lib.tar.gz); then
             echo "${venv}/lib complete"
         else
             echo "Error: failed to pack ${venv}/lib; check directory and file permissions."
@@ -226,8 +226,19 @@ setup_build() {
         echo "Warning: ${venv}/lib not found; skipping"
     fi
 
+    if [ -d "${venv}/include" ]; then
+        if $(tar cfP - ${venv}/include  --exclude=*.pyc | gzip > ${projectpath}/${dockerdir}/venv_include.tar.gz); then
+            echo "${venv}/include complete"
+        else
+            echo "Error: failed to pack ${venv}/include; check directory and file permissions."
+            exit 1
+        fi
+    else
+        echo "Warning: ${venv}/include not found; skipping"
+    fi
+
     if [ -d "${venv}/local/lib" ]; then
-        if $(tar cfP - ${venv}/local/lib | gzip > ${projectpath}/${dockerdir}/venv_local_lib.tar.gz); then
+        if $(tar cfP - ${venv}/local/lib --exclude=*.pyc | gzip > ${projectpath}/${dockerdir}/venv_local_lib.tar.gz); then
             echo "${venv}/local/lib complete"
         else
             echo "Error: failed to pack ${venv}/local/lib; check directory and file permissions."
@@ -326,29 +337,31 @@ emit_dockerfile_install_commands() {
     dockerfile+=("# python project and dependencies")
     if [ -f "${projectdir}.tar.gz" ]; then
         echo "Adding ${projectdir}.tar.gz"
-        dockerfile+=("ADD ${projectdir}.tar.gz ${bin_path}")
-        dockerfile+=("RUN cd ${bin_path} && tar xvfz ${projectdir}.tar.gz --stripcomponents=2")
+        dockerfile+=("COPY ${projectdir}.tar.gz ${bin_path}")
+        dockerfile+=("RUN cd ${bin_path} && tar xfz ${projectdir}.tar.gz --strip-components=2")
         sys_paths+=("${bin_path}${projectdir}")
         python_paths+=("${bin_path}${projectdir}")
     fi
-    dockerfile+=("RUN mkdir -p ${lib_path}${projectdir}")
     if [ -f "venv_bin.tar.gz" ]; then
         echo "Adding venv_bin.tar.gz"
-        dockerfile+=("ADD venv_bin.tar.gz ${lib_path}${projectdir}")
-        dockerfile+=("RUN cd ${lib_path}${projectdir} && tar xvfz venv_bin.tar.gz --stripcomponents=2")
-        python_paths+=("${lib_path}${projectdir}/bin")
+        dockerfile+=("COPY venv_bin.tar.gz ${lib_path}")
+        dockerfile+=("RUN cd ${lib_path} && tar xfz venv_bin.tar.gz --strip-components=3 && rm venv_bin.tar.gz")
+        sys_paths+=("${lib_path}${projectdir}/bin")
+    fi
+    if [ -f "venv_include.tar.gz" ]; then
+        echo "Adding venv_include.tar.gz"
+        dockerfile+=("COPY venv_include.tar.gz ${lib_path}")
+        dockerfile+=("RUN cd ${lib_path} && tar xfz venv_include.tar.gz --strip-components=3 && rm venv_include.tar.gz")
     fi
     if [ -f "venv_lib.tar.gz" ]; then
         echo "Adding venv_lib.tar.gz"
-        dockerfile+=("ADD venv_lib.tar.gz ${lib_path}${projectdir}")
-        dockerfile+=("RUN cd ${lib_path}${projectdir} && tar xvfz venv_lib.tar.gz --stripcomponents=2")
-        python_paths+=("${lib_path}${projectdir}/lib")
+        dockerfile+=("COPY venv_lib.tar.gz ${lib_path}")
+        dockerfile+=("RUN cd ${lib_path} && tar xfz venv_lib.tar.gz --strip-components=3 && rm venv_lib.tar.gz")
     fi
     if [ -f "venv_local_lib.tar.gz" ]; then
         echo "Adding venv_local_lib.tar.gz"
-        dockerfile+=("ADD venv_local_lib.tar.gz ${lib_path}${projectdir}")
-        dockerfile+=("RUN cd ${lib_path}${projectdir} && tar xvfz venv_local_lib.tar.gz --stripcomponents=2")
-        python_paths+=("${lib_path}${projectdir}/local/lib")
+        dockerfile+=("COPY venv_local_lib.tar.gz ${lib_path}")
+        dockerfile+=("RUN cd ${lib_path} && tar xfz venv_local_lib.tar.gz --strip-components=3 && rm venv_local_lib.tar.gz")
     fi
 }
 
@@ -474,6 +487,30 @@ emit_dockerfile() {
     fi
 }
 
+# executes the docker build command to create the image from the
+# generated dockerfile
+
+# $(DOCKER_BUILD) --tag=$(REGISTRY_BASE)/jobber-base:$(TAG) --rm=true --force-rm=true base | tee base/image-build.log
+# --rm=true --force-rm=true
+
+build_image() {
+    if [ -f "${projectpath}/${dockerdir}/Dockerfile" ]; then
+        echo "Building docker image ..."
+        docker build --tag=${image_name}:${tag} --rm=true --force-rm=true .
+        if [ $? == 0 ]; then
+            echo "Image build completed"
+        else
+            echo "Error: image build failed"
+            cd ${cwd}
+            exit 1
+        fi
+    else
+        echo "Error: dockerfile not found; exiting build."
+        cd ${cwd}
+        exit 1
+    fi
+}
+
 # runs the build process
 make_image() {
     ensure_docker
@@ -500,11 +537,8 @@ make_image() {
     echo "Entering directory ${projectpath}/${dockerdir}"
     cd ${projectpath}/${dockerdir}
     emit_dockerfile
+    build_image
 
-    # generate the dockerfile (add commands and path setting)
-    # copy the dependencies into the context
-    # execute the build command
-    # remove the dependencies
 
     echo "DEBUG ============================="
     echo "image name: ${image_name}"

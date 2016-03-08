@@ -63,7 +63,7 @@ show_help() {
     printf "\t-b, --base=BASE\t\t\tUse BASE as the base image.\n"
     printf "\t--bin_path=PATH\t\t\tInstall the project folder to PATH in the image.\n"
     printf "\t-c, --clean\t\t\t\tPerform build clean step and exit\n."
-    printf "\t--dockerdir=DIR\t\t\tUse DIR for build files (defaults to .docker).\n"
+    printf "\t--dockerdir=DIR\t\t\tUse DIR for build files (defaults to .venv2docker).\n"
     printf "\t--entrypoint=COMMAND\tExecute COMMAND as entrypoint at startup.\n"
     printf "\t-e, --env=ENV\t\t\tSet variables in ENV inside image.\n"
     printf "\t--lib_path=PATH\t\t\tInstall the venv directories to PATH in the image.\n"
@@ -595,11 +595,29 @@ emit_dockerfile() {
     fi
 }
 
+# removes the existing docker image if one exists
+remove_existing_image() {
+    image=$(docker images -q ${image_name}:${tag})
+    if [ ! -z "${image}" ]; then
+        echo "Removing existing image ${image}..."
+        docker rmi ${image_name}:${tag}
+        if [ $? == 0 ]; then
+            echo "Image ${image} removed"
+        else
+            echo "Warning: failed to remove existing image; continuing build"
+        fi
+    fi
+    unset image
+}
+
 # executes the docker build command to create the image from the
 # generated dockerfile
 build_image() {
     if [ "$no_image" = "false" ]; then
         if [ -f "${projectpath}/${dockerdir}/Dockerfile" ]; then
+            if [ "$rem_old_image" = "true" ]; then
+                remove_existing_image
+            fi
             echo "Building docker image ..."
             if [ "$log_build" = "true" ]; then
                 docker build --tag=${image_name}:${tag} --rm=true --force-rm=true . | tee build.log

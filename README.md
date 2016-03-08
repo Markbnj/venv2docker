@@ -26,7 +26,9 @@ understand it better, were enough justification for me to create this program.
 venv2docker is early, pre-release code. The only branch at this time is
 master. The script has only been tested in ubuntu 15.10 and debian jessie,
 running on bash with python 2.7.5+. I would like to make it more portable,
-and there is a lot of work still to be done there.
+and there is a lot of work still to be done there. In short anything can
+change, and certain things such as the package structure are very likely
+to.
 
 ## Prerequisites
 
@@ -36,5 +38,49 @@ you can [get it here](https://docs.docker.com/linux/step_one/).
 A working python and [virtualenv](https://virtualenv.readthedocs.org/en/latest/)
 installation is also required.
 
+## Installation
+
+Just grab the repository and either run the script right in the bin directory
+or put it on the path. The script is standalone and you can copy it anywhere
+you like.
+
 ## Use
 
+When you run venv2docker it first finds and verifies either the current active
+virtualenv or the one specified by name on the command line. It then packs
+up the project files and python dependencies and stages them in a build
+folder under the project path (.venv2docker by default). Once the files are in
+place the script generates a dockerfile and runs the `docker build` command
+against it to create the image. After the build completes the generated
+dockerfile and archives remain in the build folder until the next build, or
+until `venv2docker --clean` is run.
+
+Pretty much everything else involves the script options which control how
+the dockerfile is generated and thus what the content and behavior of the
+resulting image is.
+
+### Examples:
+
+`venv2docker`
+
+This command will build an image from the active virtualenv. If no
+virtualenv is active the program will print an error and exit. All other
+options will be set to their defaults (see below). The resulting image
+will have the same name as the virtualenv and be tagged 'latest'.
+
+`venv2docker my_test_env`
+
+Identical to the command above except that it operates on the `my_test_env`
+virtual environment, whether or not it is the active virtualenv.
+
+`venv2docker --name=my_test_image my_test_env`
+
+Like the command above this one operates on a specific named virtualenv,
+however the resulting image will be named `my_test_image`.
+
+`venv2docker --name=my_repo/my_test_image --tag=beta my_test_env`
+
+This command adds a repository path to the image name, and a tag. The
+resulting image will be `my_repo/my_test_image:beta`. A repository
+path is required to push the image to the docker hub manually, or using
+the `-p/--push` option.

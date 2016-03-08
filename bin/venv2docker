@@ -53,7 +53,7 @@ show_help() {
     echo "Options:"
     printf "\t--apt=PACKAGES\t\t\tUse apt-get to install PACKAGES at build.\n"
     printf "\t--apt=FILE\t\t\t\tInstall each package in FILE at build.\n"
-    printf "\t--args=ARGS\t\t\tPass ARGS to entrypoint command line.\n"
+    printf "\t--args=ARGS\t\t\t\tPass ARGS to entrypoint command line.\n"
     printf "\t-b, --base=BASE\t\t\tUse BASE as the base image.\n"
     printf "\t--bin_path=PATH\t\t\tInstall the project folder to PATH in the image.\n"
     printf "\t--dockerdir=DIR\t\t\tUse DIR for build files (defaults to .docker).\n"

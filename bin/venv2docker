@@ -25,7 +25,9 @@ maintainer=
 bin_path="/usr/local/bin/"
 lib_path="/usr/local/lib/"
 apt=
+pip=
 pypaths=
+paths=
 cwd=$(pwd)
 sys_paths=()
 python_paths=()
@@ -51,21 +53,23 @@ show_help() {
     echo "Options:"
     printf "\t--apt=PACKAGES\t\t\tUse apt-get to install PACKAGES at build.\n"
     printf "\t--apt=FILE\t\t\t\tInstall each package in FILE at build.\n"
-    printf "\t-a,--args=ARGS\t\t\tPass ARGS to entrypoint command line.\n"
-    printf "\t-b,--base=BASE\t\t\tUse BASE as the base image.\n"
-    printf "\t--bin_path=PATH\t\tInstall the project folder to PATH in the image.\n"
-    printf "\t-c,--command=COMMAND\tExecute COMMAND as entrypoint at startup.\n"
+    printf "\t-a, --args=ARGS\t\t\tPass ARGS to entrypoint command line.\n"
+    printf "\t-b, --base=BASE\t\t\tUse BASE as the base image.\n"
+    printf "\t--bin_path=PATH\t\t\tInstall the project folder to PATH in the image.\n"
+    printf "\t-c, --command=COMMAND\tExecute COMMAND as entrypoint at startup.\n"
     printf "\t--dockerdir=DIR\t\t\tUse DIR for build files (defaults to .docker).\n"
-    printf "\t-e,--env=ENV\t\t\tSet variables in ENV inside image.\n"
-    printf "\t--lib_path=PATH\t\tInstall the project dependencies to PATH in the image.\n"
+    printf "\t-e, --env=ENV\t\t\tSet variables in ENV inside image.\n"
+    printf "\t--lib_path=PATH\t\t\tInstall the venv directories to PATH in the image.\n"
     printf "\t--maintainer=NAME\t\tUse NAME as the maintainer string in the image.\n"
-    printf "\t-n,--name=NAME\t\t\tUse NAME as the committed image name.\n"
-    printf "\t-p,--push\t\t\t\tPush the image to the Docker hub after building.\n"
+    printf "\t-n, --name=NAME\t\t\tUse NAME as the committed image name.\n"
+    printf "\t--paths=PATHS\t\t\tAdd PATHS to system path.\n"
+    printf "\t--pip=FILE\t\t\t\tInstall each package in FILE at build.\n"
     printf "\t--ports=PORTS\t\t\tExpose PORTS in image.\n"
-    printf "\t--pypaths=PATHS\t\t\tAdd relative or absolute PATHS to python path.\n"
-    printf "\t-r,--run\t\t\t\tLaunch the image after building.\n"
-    printf "\t-s,--skip-image\t\t\tGenerate the dockerfile but skip building.\n"
-    printf "\t-t,--tag=TAG\t\t\tUse TAG as the tag for the built image.\n"
+    printf "\t-p, --push\t\t\t\tPush the image to the Docker hub after building.\n"
+    printf "\t--pypaths=PATHS\t\t\tAdd PATHS to python path.\n"
+    printf "\t-r, --run\t\t\t\tLaunch the image after building.\n"
+    printf "\t-s, --skip-image\t\tGenerate the dockerfile but skip building.\n"
+    printf "\t-t, --tag=TAG\t\t\tUse TAG as the tag for the built image.\n"
     echo
     echo "More examples:"
     echo
@@ -142,6 +146,15 @@ clean_build() {
             echo "Archive files removed"
         else
             echo "Error: failed to remove files from ${projectpath}/${dockerdir}; check file and directory permissions"
+            exit 1
+        fi
+    fi
+    if [ -f "${projectpath}/${dockerdir}/requirements.txt" ]; then
+        echo "Removing pip requirements file ..."
+        if $(rm ${projectpath}/${dockerdir}/requirements.txt); then
+            echo "pip requirements file removed"
+        else
+            echo "Error: failed to remove ${projectpath}/${dockerdir}/requirements.txt; check file and directory permissions"
             exit 1
         fi
     fi
@@ -272,7 +285,36 @@ emit_dockerfile_apt_reqs() {
             unset apt_split
         fi
         dockerfile+=("${installcmd}")
+        unset apt_path
         unset installcmd
+    fi
+}
+
+# if there is a pip file path in $pip then copy it into the build
+# folder, renaming to `requirements.txt`, and then emit the commands
+# to add and install it.
+emit_dockerfile_pip_reqs() {
+    if [ ! -z "${pip}" ]; then
+        if [[ $pip == "/*" ]]; then
+            pip_path=$pip
+        else
+            pip_path=$projectpath/$pip
+        fi
+        if [ -f "${pip_path}" ]; then
+            echo "Adding pip requirements file ${pip_path} ..."
+            cp ${pip_path} ${projectpath}/${dockerdir}/requirements.txt
+            dockerfile+=(" ")
+            dockerfile+=("# pip dependencies")
+            dockerfile+=("ADD requirements.txt ${lib_path}${projectdir}")
+            dockerfile+=("RUN pip install -qr ${lib_path}${projectdir}/requirements.txt")
+            dockerfile+=("RUN rm ${lib_path}${projectdir}/requirements.txt")
+        else
+            echo "Error: pip requirements file ${pip_path} not found"
+            cd ${cwd}
+            exit 1
+        fi
+        dockerfile+=(" ")
+        unset pip_path
     fi
 }
 
@@ -343,6 +385,57 @@ emit_dockerfile_ports() {
     fi
 }
 
+# create the commands to set the python and system paths
+emit_dockerfile_paths() {
+    echo "Setting PATH and PYTHONPATH ..."
+    dockerfile+=(" ")
+    dockerfile+=("# PATH and PYTHONPATH")
+    if [ ! -z "${sys_paths[0]}" ] || [ ! -z "${paths}" ]; then
+        pathcmd="ENV PATH "
+        if [ ! -z "${sys_paths[0]}" ]; then
+            for path in ${sys_paths[@]}; do
+                pathcmd=${pathcmd}"${path}:"
+            done
+        fi
+        if [ ! -z "${paths}" ]; then
+            path_split=($(echo ${paths} | tr "," "\n"))
+            for path in ${path_split[@]}; do
+                pathcmd=${pathcmd}"${path}:"
+            done
+            unset path_split
+        fi
+        pathcmd=${pathcmd}'$PATH'
+        dockerfile+=("${pathcmd}")
+        unset pathcmd
+    fi
+    if [ ! -z "${python_paths[0]}" ] || [ ! -z "${pypaths}" ]; then
+        pathcmd="ENV PYTHONPATH "
+        if [ ! -z "${python_paths[0]}" ]; then
+            for path in ${python_paths[@]}; do
+                pathcmd=${pathcmd}"${path}:"
+            done
+        fi
+        if [ ! -z "${pypaths}" ]; then
+            path_split=($(echo ${pypaths} | tr "," "\n"))
+            for path in ${path_split[@]}; do
+                pathcmd=${pathcmd}"${path}:"
+            done
+            unset path_split
+        fi
+        pathcmd=${pathcmd}'$PYTHONPATH'
+        dockerfile+=("${pathcmd}")
+        unset pathcmd
+    fi
+}
+
+# create the commands to specify the entrypoint, if any,
+# and command line args, if any
+emit_dockerfile_entrypoint() {
+    echo "Creating entrypoint..."
+}
+
+# runs the process to generate and write out the dockerfile according
+# to the current configuration
 emit_dockerfile() {
     echo "Creating dockerfile ..."
     IFS=$'\n'
@@ -351,6 +444,9 @@ emit_dockerfile() {
     emit_dockerfile_install_commands
     emit_dockerfile_env_vars
     emit_dockerfile_ports
+    emit_dockerfile_paths
+    emit_dockerfile_pip_reqs
+    emit_dockerfile_entrypoint
 
     if $(echo "# venv2docker generated dockerfile" > ${projectpath}/${dockerdir}/Dockerfile); then
         for line in ${dockerfile[@]}; do
@@ -359,6 +455,7 @@ emit_dockerfile() {
         echo "${projectpath}/${dockerdir}/Dockerfile created"
     else
         echo "Error: failed to write ${projectpath}/${dockerdir}/Dockerfile; check file and directory permissions."
+        cd ${cwd}
         exit 1
     fi
 }
@@ -414,6 +511,8 @@ make_image() {
     echo "bin_path: ${bin_path}"
     echo "lib_path: ${lib_path}"
     echo "apt: ${apt}"
+    echo "pip: ${pip}"
+    echo "paths: ${paths}"
     echo "pypaths: ${pypaths}"
     echo "==================================="
     echo
@@ -424,7 +523,7 @@ make_image() {
 tabs 4
 
 # parse out the options
-OPTS=$(getopt -o a:b:c:e:hn:prst: --long apt:,args:,base:,bin-path:,command:,dockerdir:,env:,help,lib-path:,maintainer:,name:,ports:,push,pypaths:,skip-image,tag: -- "$@")
+OPTS=$(getopt -o a:b:c:e:hn:prst: --long apt:,args:,base:,bin-path:,command:,dockerdir:,env:,help,lib-path:,maintainer:,name:,paths:,pip:,ports:,push,pypaths:,skip-image,tag: -- "$@")
 if [[ $? -ne 0 ]]; then
     echo "Error: failed to parse command line options."
     exit 1
@@ -480,6 +579,14 @@ while true; do
             ;;
         -n|--name)
             image_name="$2"
+            shift; shift
+            ;;
+        --paths)
+            paths="$2"
+            shift; shift
+            ;;
+        --pip)
+            pip="$2"
             shift; shift
             ;;
         --ports)

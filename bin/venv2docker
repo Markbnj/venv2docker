@@ -53,11 +53,11 @@ show_help() {
     echo "Options:"
     printf "\t--apt=PACKAGES\t\t\tUse apt-get to install PACKAGES at build.\n"
     printf "\t--apt=FILE\t\t\t\tInstall each package in FILE at build.\n"
-    printf "\t-a, --args=ARGS\t\t\tPass ARGS to entrypoint command line.\n"
+    printf "\t--args=ARGS\t\t\tPass ARGS to entrypoint command line.\n"
     printf "\t-b, --base=BASE\t\t\tUse BASE as the base image.\n"
     printf "\t--bin_path=PATH\t\t\tInstall the project folder to PATH in the image.\n"
-    printf "\t-c, --command=COMMAND\tExecute COMMAND as entrypoint at startup.\n"
     printf "\t--dockerdir=DIR\t\t\tUse DIR for build files (defaults to .docker).\n"
+    printf "\t--entrypoint=COMMAND\tExecute COMMAND as entrypoint at startup.\n"
     printf "\t-e, --env=ENV\t\t\tSet variables in ENV inside image.\n"
     printf "\t--lib_path=PATH\t\t\tInstall the venv directories to PATH in the image.\n"
     printf "\t--maintainer=NAME\t\tUse NAME as the maintainer string in the image.\n"
@@ -514,10 +514,10 @@ make_image() {
     echo "projectdir: ${projectdir}"
     echo "base: ${base}"
     echo "entrypoint: ${entrypoint}"
+    echo "args: ${args}"
     echo "no_image: ${no_image}"
     echo "push_image: ${push_image}"
     echo "run_image: ${run_image}"
-    echo "args: ${args}"
     echo "ports: ${ports}"
     echo "envs: ${envs}"
     echo "dockerdir: ${dockerdir}"
@@ -537,7 +537,7 @@ make_image() {
 tabs 4
 
 # parse out the options
-OPTS=$(getopt -o a:b:c:e:hn:prst: --long apt:,args:,base:,bin-path:,command:,dockerdir:,env:,help,lib-path:,maintainer:,name:,paths:,pip:,ports:,push,pypaths:,skip-image,tag: -- "$@")
+OPTS=$(getopt -o b:e:hn:prst: --long apt:,args:,base:,bin-path:,command:,dockerdir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,paths:,pip:,ports:,push,pypaths:,skip-image,tag: -- "$@")
 if [[ $? -ne 0 ]]; then
     echo "Error: failed to parse command line options."
     exit 1
@@ -550,7 +550,7 @@ while true; do
             apt="$2"
             shift; shift
             ;;
-        -a|--args)
+        --args)
             args="$2"
             shift; shift
             ;;
@@ -565,12 +565,12 @@ while true; do
             fi
             shift; shift
             ;;
-        -c|--command)
-            entrypoint="$2"
-            shift; shift
-            ;;
         --dockerdir)
             dockerdir="$2"
+            shift; shift
+            ;;
+        --entrypoint)
+            entrypoint="$2"
             shift; shift
             ;;
         -e|--env)

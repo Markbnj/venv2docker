@@ -84,3 +84,17 @@ This command adds a repository path to the image name, and a tag. The
 resulting image will be `my_repo/my_test_image:beta`. A repository
 path is required to push the image to the docker hub manually, or using
 the `-p/--push` option.
+
+`venv2docker --base=ubuntu:15.10 --name=my_repo/my_test_image --tag=beta my_test_env`
+
+The default base image for builds is debian jessie, however you can use the
+`-b/--base` option to set any base image you want to use by name.
+
+`venv2docker --base=ubuntu:15.10 --name=my_repo/my_test_image --tag=beta --apt=libxml2,libxslt1-dev my_test_env`
+
+The python depndencies captured by a virtualenv don't always record all the dependencies
+of a project. If you need to install packages with apt you can do so using the `--apt`
+option as shown above. Packages are installed after `apt-get update -y` is run, and
+before any additional pip dependencies are installed.
+
+

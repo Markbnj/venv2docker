@@ -46,6 +46,48 @@ you like.
 
 ## Use
 
+```bash
+venv2docker [OPTION]... [VIRTUALENV]
+
+Create docker images built from an existing virtualenv environment.
+
+If VIRTUALENV is not supplied and a virtualenv is currently active
+then that venv will be used.
+
+Example:
+    venv2docker --name=myrepo/test testenv
+
+Creates a docker image from the 'testenv' virtualenv and commits
+it to myrepo/test.
+
+Options:
+    --apt=PACKAGES          Use apt-get to install PACKAGES at build.
+    --apt=FILE              Install each package in FILE at build.
+    --args=ARGS             Pass ARGS to entrypoint command line.
+    -b, --base=BASE         Use BASE as the base image.
+    --bin_path=PATH         Install the project folder to PATH in the image.
+    -c, --clean             Perform build clean step and exit
+.   -d, --debug             Print diagnostic information after build.
+    --dockerdir=DIR         Use DIR for build files (defaults to .venv2docker).
+    --entrypoint=COMMAND    Execute COMMAND as entrypoint at startup.
+    -e, --env=ENV           Set variables in ENV inside image.
+    --lib_path=PATH         Install the venv directories to PATH in the image.
+    --maintainer=NAME       Use NAME as the maintainer string in the image.
+    -n, --name=NAME         Use NAME as the committed image name.
+    --no-dangling           Remove an existing image before building.
+    --no-log                Don't log docker build output.
+    --paths=PATHS           Add PATHS to system path.
+    --pip=FILE              Install each package in FILE at build.
+    --ports=PORTS           Expose PORTS in image.
+    -p, --push              Push the image to the Docker hub after building.
+    --pypaths=PATHS         Add PATHS to python path.
+    -r, --run               Launch the image after building.
+    -s, --skip-image        Generate the dockerfile but skip building.
+    -t, --tag=TAG           Use TAG as the tag for the built image.
+    -u, --user=USER         Change to USER before running entrypoint.
+    -w, --workdir=DIR       Change to DIR before running entrypoint.
+```
+
 When you run venv2docker it first finds and verifies either the current active
 virtualenv or the one specified by name on the command line. It then packs
 up the project files and python dependencies and stages them in a build
@@ -97,7 +139,7 @@ container please open an issue here so I can follow up on it.
 
 ## Architecture and base image compatibility
 
-Very often then only thing you care about when deploying docker containers is that
+Very often the only thing you care about when deploying docker containers is that
 the host machine is running a compatible version of the linux kernel. Not so with
 virtualenvs. The constraints are a little tighter. The main reason for this is that
 virtualenv doesn't replicate your whole system python installation. It's reason

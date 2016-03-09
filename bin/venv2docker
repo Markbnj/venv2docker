@@ -1,8 +1,18 @@
 #!/bin/bash
-
-# venv2docker is a script to migrate a virtualenv python environment
-# into a docker container. Note that it migrates only the python
-# environment and installed dependencies.
+#
+# A bash script to create a docker image from a python virtualenv.
+#
+# Copyright Mark Betz, All Rights Reserved
+#
+# venv2docker will package up the project and system files from either
+# the active virtualenv or one specified on the command line. It
+# generates a dockerfile and then runs the docker build command to
+# create the image.
+#
+# 'venv2docker --help' for more detailed information, or see
+# the readme file on github.
+#
+# Project home page: https://github.com/Markbnj/venv2docker
 
 version="0.0.1"
 venv_root="${VIRTUALENVWRAPPER_HOOK_DIR}/"

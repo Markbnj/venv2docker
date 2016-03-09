@@ -166,6 +166,77 @@ moving the venv either doesn't have python installed, or has it somewhere else.
 
 ## Entrypoints and passing arguments
 
+While you may just want an image you can shell into and play around or test with,
+more often your virtualenv will contain some program that you want to run, and
+given the nature of containers that program will likely be some sort of server
+process or job that you need to start, and to which you need to pass some
+arguments for configuration.
+
+This readme doesn't aim to be a docker tutorial. The docker docs [contain a decent
+one](https://docs.docker.com/linux/). But there are a couple of things that are
+important to know. First, every docker container expects to run a single process
+at startup. This process may be a shell, or any other program. It is assigned
+PID 1 and when it dies the container transitions from running to stopped.
+
+In a dockerfile (the build template for a docker image) there are two ways to
+specify what command you want executed at startup, the ENTRYPOINT and CMD
+directives. I'm not going into the details of the differences between them,
+but suffice it to say that ENTRYPOINT is what works best for the scenario
+that venv2docker was written to enable, and setting the entrypoint in your
+image is done through the `--entrypoint` option.
+
+`venv2docker --entrypoint=/usr/local/bin/myprogram`
+
+When you use this option to the script the following is generated into the
+dockerfile at build time:
+
+`ENTRYPOINT ["/usr/local/bin/myprogram"]`
+
+The path in this example is absolute, but it may be relative to the current
+working directory. You can set the working directory for the image using the `-w|--workdir`
+option. It can also be a file on the PATH that you have set inside
+the image using the `--paths` argument (Note that venv2docker places your project
+root folder on the system path by default).
+
+If you need to pass arguments to the entrypoint command you use the `--args` option
+followed by a comma-separated list of strings:
+
+`venv2docker --entrypoint=python --args=manage.py,runserver,0.0.0.0:8000`
+
+When you use these options to the script the following is generated into the
+dockerfile at build time:
+
+`ENTRYPOINT ["python", "manage.py", "runserver", "0.0.0.0:8000"]`
+
+Because these arguments are strings and are simply inserted into the right spot
+in the dockerfile, you can mostly do anything with them that you might do in
+a script, such as refer to an environment variable:
+
+`venv2docker --entrypoint=python --args=manage.py,runserver,${IP}:${PORT}`
+
+If you want to change the behavior of the container after the image is built
+you can do it by setting environment variables at run as shown below. You can
+also append new arguments to the list of those to be passed to the entrypoint
+by passing them to the `docker run` command:
+
+`docker run -d image_name arg1=1 arg2=2`
+
+If you run the container this way then the behavior is the same as if the following
+had been present in the dockerfile at build:
+
+`ENTRYPOINT ["python", "manage.py", "runserver", "0.0.0.0:8000", "arg1=1", "arg2=2"]`
+
+Lastly every docker container needs some command to run at start, so if you have
+no entrypoint specified for your image using the `--entrypoint` option then you
+must pass a command to the `docker run` command or the container won't run:
+
+`docker run -d image_name /bin/bash`
+
+If you _do_ have an entrypoint specified in your image, and you pass a command
+as shown above, the text of the command will get appended to the list of args
+to the entrypoint as described above, so it is important to understand the
+differences when you do or don't have an entrypoint defined.
+
 ## Ports
 
 ## Running the image

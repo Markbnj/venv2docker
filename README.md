@@ -20,15 +20,26 @@ be building a simple Wordpress site in a virtualenv at home, and still wish to
 take advantage of the ease of deployment that a containerized application
 offers. That use-case, and also just wanting to dig into virtualenv and
 understand it better, were enough justification for me to create this program.
+Not to mention that it's a pretty good demo project: in one file you have
+concerns of python, docker, and bash scripting. What's not to like?
 
 ## Pre-release
 
-venv2docker is early, pre-release code. The only branch at this time is
-master. The script has only been tested in ubuntu 15.10 and debian jessie,
-running on bash with python 2.7.5+. I would like to make it more portable,
-and there is a lot of work still to be done there. In short anything can
-change, and certain things such as the package structure are very likely
-to.
+venv2docker is early. It has been tested on a very limited number of platforms
+(ubuntu 15.10 and debian jessie), against a very limited number of
+virtualenvs, and only using python 2.7+. I am also not really a very good bash
+programmer, so feel free to laugh at my hacks and curse my bugs, but please do also
+open an issue here so I can correct them and learn from you.
+
+Having said that, there is not much risk in your trying this script for the
+following reasons:
+
+1. The script does not write to your existing virtualenv.
+2. The script does not write to your project directory other than the venv2docker
+build folder (which you can change, see "Options" below).
+3. The script makes all file-level changes in /tmp.
+4. All other writes take place inside the docker image and the host system docker registry.
+5. It cleans up after itself.
 
 ## Prerequisites
 
@@ -46,7 +57,7 @@ you like.
 
 ## Use
 
-```bash
+```
 venv2docker [OPTION]... [VIRTUALENV]
 
 Create docker images built from an existing virtualenv environment.
@@ -153,6 +164,14 @@ start the interpreter in the image and see messages about missing platform-depen
 -independent libraries, or missing `site.py` then the image into which you are
 moving the venv either doesn't have python installed, or has it somewhere else.
 
+## Running the image
+
+## Entrypoints and passing arguments
+
+## Ports
+
+## Debugging techniques
+
 ## Examples:
 
 `venv2docker`
@@ -186,7 +205,7 @@ The default base image for builds is debian jessie, however you can use the
 
 `venv2docker --base=ubuntu:15.10 --name=my_repo/my_test_image --tag=beta --apt=libxml2,libxslt1-dev my_test_env`
 
-The python depndencies captured by a virtualenv don't always record all the dependencies
+The python dependencies captured by a virtualenv don't always record all the dependencies
 of a project. If you need to install packages with apt you can do so using the `--apt`
 option as shown above. Packages are installed after `apt-get update -y` is run, and
 before any additional pip dependencies are installed.

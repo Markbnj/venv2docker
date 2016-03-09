@@ -48,6 +48,8 @@ python_paths=()
 clean_only=false
 user=
 workdir=
+no_project_path=false
+no_project_pypath=false
 
 # display the main help screen
 show_help() {
@@ -82,6 +84,8 @@ show_help() {
     printf "\t-n, --name=NAME\t\t\tUse NAME as the committed image name.\n"
     printf "\t--no-dangling\t\t\tRemove an existing image before building.\n"
     printf "\t--no-log\t\t\t\tDon't log docker build output.\n"
+    printf "\t--no-project-path\t\tDon't add the project root to the system path.\n"
+    printf "\t--no-project-pypath\t\tDon't add the project root to the python path.\n"
     printf "\t--paths=PATHS\t\t\tAdd PATHS to system path.\n"
     printf "\t--pip=FILE\t\t\t\tInstall each package in FILE at build.\n"
     printf "\t--ports=PORTS\t\t\tExpose PORTS in image.\n"
@@ -461,8 +465,12 @@ emit_dockerfile_install_commands() {
         echo "Adding ${projectdir}.tar.gz"
         dockerfile+=("COPY ${projectdir}.tar.gz ${bin_path}")
         dockerfile+=("RUN cd ${bin_path} && tar xfz ${projectdir}.tar.gz && rm ${projectdir}.tar.gz")
-        sys_paths+=("${bin_path}${projectdir}")
-        python_paths+=("${bin_path}${projectdir}")
+        if [ "$no_project_path" = "false" ]; then
+            sys_paths+=("${bin_path}${projectdir}")
+        fi
+        if [ "$no_project_pypath" = "false" ]; then
+            python_paths+=("${bin_path}${projectdir}")
+        fi
     fi
     if [ -f "venv_bin.tar.gz" ]; then
         echo "Adding venv_bin.tar.gz"
@@ -748,7 +756,7 @@ make_image() {
 tabs 4
 
 # parse out the options
-OPTS=$(getopt -o b:cde:hn:prst:u:w: --long apt:,args:,base:,bin-path:,clean,command:,debug,dockerdir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,no-dangling,no-log,paths:,pip:,ports:,push,pypaths:,skip-image,tag:,user:,workdir: -- "$@")
+OPTS=$(getopt -o b:cde:hn:prst:u:w: --long apt:,args:,base:,bin-path:,clean,command:,debug,dockerdir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,no-dangling,no-log,no-project-path,no-project-pypath,paths:,pip:,ports:,push,pypaths:,skip-image,tag:,user:,workdir: -- "$@")
 if [[ $? -ne 0 ]]; then
     echo "Error: failed to parse command line options."
     exit 1
@@ -820,6 +828,14 @@ while true; do
             ;;
         --no-log)
             log_build=false
+            shift
+            ;;
+        --no-project-path)
+            no_project_path=true
+            shift
+            ;;
+        --no-project-pypath)
+            no_project_pypath=true
             shift
             ;;
         --paths)

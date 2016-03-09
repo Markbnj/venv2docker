@@ -87,6 +87,8 @@ Options:
     -n, --name=NAME         Use NAME as the committed image name.
     --no-dangling           Remove an existing image before building.
     --no-log                Don't log docker build output.
+    --no-project-path       Don't add the project root to the system path.
+    --no-project-pypath     Don't add the project root to the python path.
     --paths=PATHS           Add PATHS to system path.
     --pip=FILE              Install each package in FILE at build.
     --ports=PORTS           Expose PORTS in image.
@@ -239,6 +241,32 @@ differences when you do or don't have an entrypoint defined.
 
 ## Ports
 
+A docker container is connected internally to a virtual ethernet interface. It
+has its own IP and port ranges separate from the host system. This means that
+if you start a process inside a container and it binds to 0.0.0.0:8000 then
+any other process running in that same container can connect to it there, but
+processes (such as a web client) that are running on the host cannot.
+
+If your image implements a process that you need to connect to from outside
+you can use the `-p|--ports` option to venv2docker to specify which ports you
+want to make available to the outside world:
+
+`venv2docker --ports=80,443 image_name`
+
+When this option is used the following is generated into the dockerfile at build
+time:
+
+`EXPOSE 80 443`
+
+However this is not enough to get you connected. While this does document which
+port the container expects to receive traffic on, it does not tell the system
+which port on the host to connect it to. That is done in the `docker run` command:
+
+`docker run -d -p 80:80 -p 443:443 image_name`
+
+The ports on the host and container don't need to match, giving you a lot of flexibility
+in how you connect to your service from outside.
+
 ## Running the image
 
 Once your image is successfully built you can use the `docker run` command to start
@@ -248,15 +276,15 @@ examples:
 
 1. Run an image in the foreground and get a shell inside it:
 
-`docker run -it image_name /bin/bash`
+    `docker run -it image_name /bin/bash`
 
 2. Run an image in the background and connect a host port to a port in the container:
 
-`docker run -d -p 8000:8000 image_name`
+    `docker run -d -p 8000:8000 image_name`
 
 3. Run an image, setting an environment variable inside it:
 
-`docker run -d -e "MYVAR=MYVALUE" image_name`
+    `docker run -d -e "MYVAR=MYVALUE" image_name`
 
 If you run your image in the foreground with a shell then killing it is as easy as
 exiting the shell by typing `exit`. For images running detached in the background
@@ -271,6 +299,27 @@ containers use `docker ps -a`.
 More information can be found in [the docker run reference](https://docs.docker.com/engine/reference/run/).
 
 ## Debugging techniques
+
+A docker container, especially one running in detached mode in the background, can
+seem like an inscrutable black box when something goes wrong. Why didn't it start?
+Why can't I connect to my service? Fortunately there are a couple of tools and
+techniques you can use to see what is going on.
+
+If your process writes diagnostic information to stdout or stderr you can retrieve
+it, as long as the container exists, using the [docker logs](https://docs.docker.com/engine/reference/commandline/logs/)
+command. You can use the `--follow` option to this command to get streaming output from
+both pipes.
+
+You can get information about the current status of the container using the [docker inspect]
+(https://docs.docker.com/engine/reference/commandline/inspect/) command.
+
+You can execute a command inside a container that is in the running state using the
+[docker exec](https://docs.docker.com/engine/reference/commandline/exec/) command,
+which is a very powerful tool.
+
+For example, to get a shell inside a running container:
+
+`docker exec -it <container_name_or_id> /bin/bash`
 
 ## Examples:
 

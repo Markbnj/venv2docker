@@ -49,8 +49,7 @@ clean_only=false
 user=
 workdir=
 
-# display the main help screen, if a command name is passed include specific help
-# for that command
+# display the main help screen
 show_help() {
     echo "venv2docker ${version}"
     echo
@@ -252,7 +251,12 @@ clean_build() {
 # directory and subdirectories that contains the hard-coded
 # virtualenv interpreter path
 patch_paths() {
-    echo "Not yet"
+    echo "Patching environment paths in $1 ..."
+    files=$(grep ${venv_root} -l --recursive --exclude=*.pyc $1)
+    for file in $files; do
+        echo "Patching $file ..."
+        sed -i"" -e "s:${venv_root}:${lib_path}:g" $file
+    done
 }
 
 # expects a directory path in $1, folder name in $2, tmp dir name in

@@ -494,6 +494,12 @@ emit_dockerfile_env_vars() {
         echo "Setting environment variables ..."
         dockerfile+=(" ")
         dockerfile+=("# environment variables")
+
+        # don't know if it's useful to set these or not but it seemed
+        # sensible
+        dockerfile+=("ENV VIRTUAL_ENV ${lib_path}/${venv}")
+        dockerfile+=("ENV VIRTUALENVWRAPPER_HOOK_DIR ${lib_path}")
+
         env_split=($(echo ${envs} | tr "," "\n"))
         for env_pair in ${env_split[@]}; do
            var_split=($(echo ${env_pair} | tr "=" "\n"))

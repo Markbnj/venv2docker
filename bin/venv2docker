@@ -149,9 +149,7 @@ ensure_venv() {
         echo "Error: could not find project home for env $venv"
         exit 1
     fi
-    path_split=($(echo ${projectpath} | tr "/" "\n"))
-    projectdir=${path_split[ ${#path_split[@]} -1 ]}
-    unset path_split
+    projectdir=$(basename ${projectpath})
 }
 
 # if the docker build directory already exists get rid of anything

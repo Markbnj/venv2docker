@@ -164,11 +164,40 @@ start the interpreter in the image and see messages about missing platform-depen
 -independent libraries, or missing `site.py` then the image into which you are
 moving the venv either doesn't have python installed, or has it somewhere else.
 
-## Running the image
-
 ## Entrypoints and passing arguments
 
 ## Ports
+
+## Running the image
+
+Once your image is successfully built you can use the `docker run` command to start
+and test it. Exactly how you use this command depends on the options you used when
+building the image, and what your application does but here are a few general
+examples:
+
+1. Run an image in the foreground and get a shell inside it:
+
+`docker run -it image_name /bin/bash`
+
+2. Run an image in the background and connect a host port to a port in the container:
+
+`docker run -d -p 8000:8000 image_name`
+
+3. Run an image, setting an environment variable inside it:
+
+`docker run -d -e "MYVAR=MYVALUE" image_name`
+
+If you run your image in the foreground with a shell then killing it is as easy as
+exiting the shell by typing `exit`. For images running detached in the background
+you can either do `docker rm <container_id>` or `docker rm <container_name>` if you named
+the container using the `--name` flag to the `docker run` command. If you don't know
+the container id you can find it with `docker ps.` Lastly, containers that have been
+stopped or in which PID 1 has exited remain in their created state, and an attempt to
+remove and rebuild the image will fail since the container depends on it, as will
+attempts to create the container again with the same name. To find stopped/exited
+containers use `docker ps -a`.
+
+More information can be found in [the docker run reference](https://docs.docker.com/engine/reference/run/).
 
 ## Debugging techniques
 

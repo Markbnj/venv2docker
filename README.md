@@ -364,8 +364,8 @@ before any additional pip dependencies are installed.
 The following command line paramters control various aspects of the final image
 produced by venv2docker.
 
-### --apt=PACKAGE[,PACKAGE][...]
-### --apt=FILE
+#### --apt=PACKAGE[,PACKAGE][...]
+#### --apt=FILE
 
 Example:
 
@@ -379,7 +379,7 @@ The script installs apt packages by running `apt-get update` and then
 `apt-get install`. Packages are installed as the first step in the image build
 process.
 
-### --args=ARG[,ARG][...]
+#### --args=ARG[,ARG][...]
 
 Example:
 
@@ -389,7 +389,7 @@ Use to pass arguments to an entrypoint command. Takes a comma-delimited list
 of argument strings, each of which is appended as-is to the arguments list
 of the ENTRYPOINT directive in the generated dockerfile.
 
-### -b|--base=IMAGE
+#### -b|--base=IMAGE
 
 Example:
 

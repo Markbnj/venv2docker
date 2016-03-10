@@ -5,6 +5,22 @@ a docker container. The script supports numerous options for controlling
 the content of the image at build time, as well as the behavior of the
 container at runtime.
 
+## Table of Contents
+* [Why](#why)
+* [Pre-release](#pre-release)
+* [Prerequisites](#prerequisites)
+* [Installation](#installation)
+* [Use](#use)
+* [Relocation and --relocatable](#relocation-and---relocatable)
+* [Architecture and base image compatibility](#architecture-and-base-image-compatibility)
+* [Entrypoints and passing arguments](#entrypoints-and-passing-arguments)
+* [Ports](#ports)
+* [Running the image](#running-the-image)
+* [Debugging techniques](#debugging-techniques)
+* [Examples](#examples)
+* [Options](#options)
+* [Tutorial: a quickie django image](#tutorial-a-quickie-django-image)
+
 ## Why?
 
 It's a good question! Physically migrating your virtualenv into a docker

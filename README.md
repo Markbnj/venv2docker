@@ -465,6 +465,29 @@ Example:
 Use this argument to specify the command to serve as the entrypoint for the image
 at startup. For more information see [Entrypoints and passing arguments](#entrypoints-and-passing-arguments).
 
+----
+
+###### -e|--env='VAR=VALUE[,VAR=VALUE][...]'
+
+Example:
+
+`venv2docker --env='PORT=80,IF=0.0.0.0' my_test_env`
+
+Use this argument to add environment variables to the image at build time (as opposed to setting
+them at runtime with the `docker run` command.)
+
+----
+
+###### --lib-path=PATH'
+
+Example:
+
+`venv2docker --lib-path=/etc/stuff my_test_env`
+
+By default venv2docker installs the virtualenv binaries and library dependencies into
+/usr/local/lib. Use this argument to override the default and specify a different install path.
+
+
 
 
 ## Tutorial: a quickie django image

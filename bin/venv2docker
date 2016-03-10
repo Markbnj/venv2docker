@@ -50,6 +50,7 @@ user=
 workdir=
 no_project_path=false
 no_project_pypath=false
+no_prompt=false
 
 # display the main help screen
 show_help() {
@@ -72,11 +73,11 @@ show_help() {
     printf "\t--apt=PACKAGES\t\t\tUse apt-get to install PACKAGES at build.\n"
     printf "\t--apt=FILE\t\t\t\tInstall each package in FILE at build.\n"
     printf "\t--args=ARGS\t\t\t\tPass ARGS to entrypoint command line.\n"
-    printf "\t-b, --base=IMAGE\t\t\tUse BASE as the base image.\n"
+    printf "\t-b, --base=IMAGE\t\tUse BASE as the base image.\n"
     printf "\t--bin-path=PATH\t\t\tInstall the project folder to PATH in the image.\n"
-    printf "\t-c, --clean\t\t\t\tPerform build clean step and exit\n."
+    printf "\t-c, --clean\t\t\t\tPerform build clean step and exit.\n"
     printf "\t-d, --debug\t\t\t\tPrint diagnostic information after build.\n"
-    printf "\t--dockerdir=PATH\t\t\tUse DIR for build files (defaults to .venv2docker).\n"
+    printf "\t--dockerdir=PATH\t\tUse DIR for build files (defaults to .venv2docker).\n"
     printf "\t--entrypoint=COMMAND\tExecute COMMAND as entrypoint at startup.\n"
     printf "\t-e, --env=ENV\t\t\tSet variables in ENV inside image.\n"
     printf "\t--lib-path=PATH\t\t\tInstall the venv directories to PATH in the image.\n"
@@ -96,6 +97,7 @@ show_help() {
     printf "\t-t, --tag=TAG\t\t\tUse TAG as the tag for the built image.\n"
     printf "\t-u, --user=USER\t\t\tChange to USER before running entrypoint.\n"
     printf "\t-w, --workdir=PATH\t\tChange to DIR before running entrypoint.\n"
+    printf "\t-y, --no-prompt\t\t\tDo not prompt for confirmation before building.\n"
     echo
     echo "More examples:"
     echo
@@ -700,6 +702,33 @@ build_image() {
     fi
 }
 
+post_build_banner() {
+    local dockercmd="docker run "
+    local fgopt="-d "
+    local portopt=" "
+    local cmdopt=
+    local tagopt=
+    if [ -z "${entrypoint}" ]; then
+        fgopt="-it "
+        cmdopt="/bin/bash "
+    fi
+    if [ ! -z "${ports}" ]; then
+        local port_split=($(echo ${ports} | tr "," "\n"))
+        for port in ${port_split[@]}; do
+            portopt=${portopt}"-p ${port}:${port} "
+        done
+    fi
+    if [[ "${tag}" -ne "latest" ]]; then
+        tagopt=":${tag}"
+    fi
+    echo
+    echo "The following command can be used to test your docker image:"
+    echo
+    echo "  ${dockercmd}${fgopt}${portopt}${image_name}${tagopt} ${cmdopt}"
+    echo
+    echo "For more information see https://github.com/Markbnj/venv2docker/blob/master/README.md"
+}
+
 write_debug_info() {
     echo
     echo "DEBUG ============================="
@@ -744,6 +773,7 @@ make_image() {
     cd ${projectpath}/${dockerdir}
     emit_dockerfile
     build_image
+    post_build_banner
 
     if [ "$debug" = "true" ]; then
         write_debug_info
@@ -756,7 +786,7 @@ make_image() {
 tabs 4
 
 # parse out the options
-OPTS=$(getopt -o b:cde:hn:prst:u:w: --long apt:,args:,base:,bin-path:,clean,command:,debug,dockerdir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,no-dangling,no-log,no-project-path,no-project-pypath,paths:,pip:,ports:,push,pypaths:,skip-image,tag:,user:,workdir: -- "$@")
+OPTS=$(getopt -o b:cde:hn:prst:u:w:y --long apt:,args:,base:,bin-path:,clean,command:,debug,dockerdir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,no-dangling,no-log,no-project-path,no-project-pypath,no-prompt,paths:,pip:,ports:,push,pypaths:,skip-image,tag:,user:,workdir: -- "$@")
 if [[ $? -ne 0 ]]; then
     echo "Error: failed to parse command line options."
     exit 1
@@ -878,6 +908,10 @@ while true; do
             workdir="$2"
             shift; shift
             ;;
+        -y|--no-prompt)
+            no_prompt=true
+            shift
+            ;;
         --)
             shift
             if [ ! -z "$1" ]; then
@@ -892,13 +926,50 @@ while true; do
     esac
 done
 
+# request the user to confirm the clean command and exit on any
+# choice other than yes.
+confirm_clean() {
+    read -p "Remove venv2docker build files for venv '${venv}' (y/N)?" choice
+    case "$choice" in
+        y|Y) return;;
+        *) exit 0;;
+    esac
+}
+
+# request the user to confirm the make command and exit on any
+# choice other than yes.
+confirm_make() {
+    echo "Build docker image from virtualenv"
+    echo "----------------------------------"
+    echo "venv name: ${venv}"
+    echo "venv path: ${venv_root}${venv}"
+    echo "project path: ${projectpath}"
+    echo "image name: ${image_name}"
+    echo "image tag: ${tag}"
+    echo "base image: ${base}"
+    echo "entrypoint: ${entrypoint}"
+    echo "args: ${args}"
+    echo
+    read -p "Build docker image now (y/N)?" choice
+    case "$choice" in
+        y|Y) return;;
+        *) exit 0;;
+    esac
+}
+
 echo
 echo "venv2docker ${version}"
 echo
 ensure_docker
 ensure_venv
 if [ "$clean_only" = "true" ]; then
+    if [ "${no_prompt}" = "false" ]; then
+        confirm_clean
+    fi
     clean_build
 else
+    if [ "${no_prompt}" = "false" ]; then
+        confirm_make
+    fi
     make_image
 fi

@@ -115,6 +115,7 @@ Options:
     -t, --tag=TAG           Use TAG as the tag for the built image.
     -u, --user=USER         Change to USER before running entrypoint.
     -w, --workdir=PATH      Change to DIR before running entrypoint.
+    -y, --no-prompt         Do not prompt for confirmation before building.
 ```
 
 When you run venv2docker it first finds and verifies either the current active
@@ -704,6 +705,15 @@ set the working directory to the root folder of your project using a WORKDIR
 directive in the dockerfile. Use this argument to specify a different working
 directory.
 
+----
+
+###### -y|--no-prompt
+
+Example:
+
+`venv2docker --no-prompt my_test_env`
+
+Suppresses the confirmation prompt normally displayed before the image builds.
 
 ## Tutorial: a quickie django image
 

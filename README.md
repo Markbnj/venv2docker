@@ -706,3 +706,299 @@ directory.
 
 
 ## Tutorial: a quickie django image
+
+A quick walk-through of the whole process for a quick-start django image. Hardly
+deserves to be called a tutorial, but really there isn't all that much to it.
+
+##### Step 1: create a virtualenv for the project
+
+```bash
+mark@viking:~/workspace$ mkproject django_v2d
+New python executable in django-v2d/bin/python
+Installing setuptools, pip, wheel...done.
+Creating /home/mark/workspace/django_v2d
+Setting project for django_v2d to /home/mark/workspace/django_v2d
+(django_v2d)mark@viking:~/workspace/django_v2d$
+```
+
+##### Step 2: install django
+
+```bash
+(django_v2d)mark@viking:~/workspace/django_v2d$ pip install Django
+Collecting Django
+  Using cached Django-1.9.4-py2.py3-none-any.whl
+Installing collected packages: Django
+Successfully installed Django-1.9.4
+(django_v2d)mark@viking:~/workspace/django_v2d$ python -c "import django; print(django.get_version())"
+1.9.4
+(django_v2d)mark@viking:~/workspace/django_v2d$
+```
+
+##### Step 3: start the django project
+
+Django wants to create the project folder and will complain if it exists, so at
+this point back up a folder and remove the one that virtualenvwrapper created.
+Then run the `startproject` command.
+
+```bash
+(django_v2d)mark@viking:~/workspace/django_v2d$ cd ..
+(django_v2d)mark@viking:~/workspace$ rm -rf django_v2d
+(django_v2d)mark@viking:~/workspace$ django-admin startproject django_v2d
+(django_v2d)mark@viking:~/workspace$ cd django_v2d
+(django_v2d)mark@viking:~/workspace/django_v2d$ ll
+total 24
+drwxrwxr-x 3 mark mark 4096 Mar  9 23:54 ./
+drwxrwxr-x 9 mark mark 4096 Mar  9 23:54 ../
+drwxrwxr-x 2 mark mark 4096 Mar  9 23:54 django_v2d/
+-rwxrwxr-x 1 mark mark  253 Mar  9 23:54 manage.py*
+(django_v2d)mark@viking:~/workspace/django_v2d$
+```
+
+##### Step 5: run migrations
+
+You might not need to do this, but it removes a warning on the server startup.
+
+```bash
+(django_v2d)mark@viking:~/workspace/django_v2d$ python manage.py migrate
+Operations to perform:
+  Apply all migrations: admin, contenttypes, auth, sessions
+Running migrations:
+  Rendering model states... DONE
+  Applying contenttypes.0001_initial... OK
+  Applying auth.0001_initial... OK
+  Applying admin.0001_initial... OK
+  Applying admin.0002_logentry_remove_auto_add... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying auth.0002_alter_permission_name_max_length... OK
+  Applying auth.0003_alter_user_email_max_length... OK
+  Applying auth.0004_alter_user_username_opts... OK
+  Applying auth.0005_alter_user_last_login_null... OK
+  Applying auth.0006_require_contenttypes_0002... OK
+  Applying auth.0007_alter_validators_add_error_messages... OK
+  Applying sessions.0001_initial... OK
+(django_v2d)mark@viking:~/workspace/django_v2d$
+```
+
+##### Step 6: test the server
+
+```bash
+(django_v2d)mark@viking:~/workspace/django_v2d$ python manage.py runserver
+Performing system checks...
+
+System check identified no issues (0 silenced).
+March 10, 2016 - 05:00:21
+Django version 1.9.4, using settings 'django_v2d.settings'
+Starting development server at http://127.0.0.1:8000/
+Quit the server with CONTROL-C.
+```
+
+```bash
+mark@viking:~/workspace/django_v2d$ curl localhost:8000
+
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta name="robots" content="NONE,NOARCHIVE"><title>Welcome to Django</title>
+  <style type="text/css">
+    html * { padding:0; margin:0; }
+    body * { padding:10px 20px; }
+    body * * { padding:0; }
+    body { font:small sans-serif; }
+    body>div { border-bottom:1px solid #ddd; }
+    h1 { font-weight:normal; }
+    h2 { margin-bottom:.8em; }
+    h2 span { font-size:80%; color:#666; font-weight:normal; }
+    h3 { margin:1em 0 .5em 0; }
+    h4 { margin:0 0 .5em 0; font-weight: normal; }
+    table { border:1px solid #ccc; border-collapse: collapse; width:100%; background:white; }
+    tbody td, tbody th { vertical-align:top; padding:2px 3px; }
+    thead th {
+      padding:1px 6px 1px 3px; background:#fefefe; text-align:left;
+      font-weight:normal; font-size:11px; border:1px solid #ddd;
+    }
+    tbody th { width:12em; text-align:right; color:#666; padding-right:.5em; }
+    #summary { background: #e0ebff; }
+    #summary h2 { font-weight: normal; color: #666; }
+    #explanation { background:#eee; }
+    #instructions { background:#f6f6f6; }
+    #summary table { border:none; background:transparent; }
+  </style>
+</head>
+
+<body>
+<div id="summary">
+  <h1>It worked!</h1>
+  <h2>Congratulations on your first Django-powered page.</h2>
+</div>
+
+<div id="instructions">
+  <p>
+    Of course, you haven't actually done any work yet. Next, start your first app by running <code>python manage.py startapp [app_label]</code>.
+  </p>
+</div>
+
+<div id="explanation">
+  <p>
+    You're seeing this message because you have <code>DEBUG = True</code> in your Django settings file and you haven't configured any URLs. Get to work!
+  </p>
+</div>
+</body></html>
+mark@viking:~/workspace/django_v2d$
+```
+
+##### Step 7: build the docker image
+
+```bash
+mark@viking:~/venv2docker/bin$ ./venv2docker --apt=python --entrypoint=python --args=manage.py,runserver,0.0.0.0:8000 --name=django_v2d --ports=8000 --no-dangling django_v2d
+```
+A couple of things to note. First the standard debian image which venv2docker uses doesn't have python
+2 installed, so the --apt option is used to install that first. Also an argument is added to tell
+the django development server to bind to 0.0.0.0 so that we can connect from the host system.
+
+After the build completes the image has been added to the local docker repository, and the
+project directory now contains the build directory as shown:
+
+```bash
+mark@viking:~/workspace/django_v2d/.venv2docker$ ll
+total 7140
+drwxrwxr-x 2 mark mark    4096 Mar 10 00:07 ./
+drwxrwxr-x 4 mark mark    4096 Mar 10 00:07 ../
+-rw-rw-r-- 1 mark mark   10976 Mar 10 00:07 build.log
+-rw-rw-r-- 1 mark mark    5109 Mar 10 00:07 django_v2d.tar.gz
+-rw-rw-r-- 1 mark mark    1355 Mar 10 00:07 Dockerfile
+-rw-rw-r-- 1 mark mark 1588037 Mar 10 00:07 venv_bin.tar.gz
+-rw-rw-r-- 1 mark mark     165 Mar 10 00:07 venv_include.tar.gz
+-rw-rw-r-- 1 mark mark 5620772 Mar 10 00:07 venv_lib.tar.gz
+-rw-rw-r-- 1 mark mark     148 Mar 10 00:07 venv_local_lib.tar.gz
+```
+
+It's worth looking at the generated dockerfile to get a sense of what it is
+doing and in what order:
+
+```
+# venv2docker generated dockerfile
+#
+# generated on: Thu Mar 10 00:07:08 EST 2016
+#
+# project path: /home/mark/workspace/django_v2d
+# venv path: django_v2d
+# image name: django_v2d
+# script version: 0.0.1
+#
+# This file will be recreated if venv2docker is run again, so be
+# sure to preserve any edits separately.
+
+FROM debian:jessie
+
+# apt dependencies
+RUN apt-get update -y
+RUN apt-get install -y python
+
+# python project and dependencies
+COPY django_v2d.tar.gz /usr/local/bin/
+RUN cd /usr/local/bin/ && tar xfz django_v2d.tar.gz && rm django_v2d.tar.gz
+COPY venv_bin.tar.gz /usr/local/lib/
+RUN cd /usr/local/lib/ && tar xfz venv_bin.tar.gz && rm venv_bin.tar.gz
+COPY venv_include.tar.gz /usr/local/lib/
+RUN cd /usr/local/lib/ && tar xfz venv_include.tar.gz && rm venv_include.tar.gz
+COPY venv_lib.tar.gz /usr/local/lib/
+RUN cd /usr/local/lib/ && tar xfz venv_lib.tar.gz && rm venv_lib.tar.gz
+COPY venv_local_lib.tar.gz /usr/local/lib/
+RUN cd /usr/local/lib/ && tar xfz venv_local_lib.tar.gz && rm venv_local_lib.tar.gz
+
+# exposed ports
+EXPOSE 8000
+
+# PATH and PYTHONPATH
+ENV PATH /usr/local/bin/django_v2d:/usr/local/lib/django_v2d/bin:$PATH
+ENV PYTHONPATH /usr/local/bin/django_v2d:$PYTHONPATH
+
+# set working directory
+WORKDIR /usr/local/bin/django_v2d
+
+# entrypoint and arguments
+ENTRYPOINT ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+```
+
+##### Step 8: run and test the image
+
+```bash
+mark@viking:~/workspace/venv2docker/bin$ docker run -d -p 8000:8000 django_v2d
+473f81f4fbe8887ad56a4f61ed293807aa92fa9a3e7376793e87b1a681af3b68
+mark@viking:~/workspace/venv2docker/bin$
+```
+
+```bash
+mark@viking:~/workspace/venv2docker/bin$ curl localhost:8000
+
+<!DOCTYPE html>
+<html lang="en"><head>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8">
+  <meta name="robots" content="NONE,NOARCHIVE"><title>Welcome to Django</title>
+  <style type="text/css">
+    html * { padding:0; margin:0; }
+    body * { padding:10px 20px; }
+    body * * { padding:0; }
+    body { font:small sans-serif; }
+    body>div { border-bottom:1px solid #ddd; }
+    h1 { font-weight:normal; }
+    h2 { margin-bottom:.8em; }
+    h2 span { font-size:80%; color:#666; font-weight:normal; }
+    h3 { margin:1em 0 .5em 0; }
+    h4 { margin:0 0 .5em 0; font-weight: normal; }
+    table { border:1px solid #ccc; border-collapse: collapse; width:100%; background:white; }
+    tbody td, tbody th { vertical-align:top; padding:2px 3px; }
+    thead th {
+      padding:1px 6px 1px 3px; background:#fefefe; text-align:left;
+      font-weight:normal; font-size:11px; border:1px solid #ddd;
+    }
+    tbody th { width:12em; text-align:right; color:#666; padding-right:.5em; }
+    #summary { background: #e0ebff; }
+    #summary h2 { font-weight: normal; color: #666; }
+    #explanation { background:#eee; }
+    #instructions { background:#f6f6f6; }
+    #summary table { border:none; background:transparent; }
+  </style>
+</head>
+
+<body>
+<div id="summary">
+  <h1>It worked!</h1>
+  <h2>Congratulations on your first Django-powered page.</h2>
+</div>
+
+<div id="instructions">
+  <p>
+    Of course, you haven't actually done any work yet. Next, start your first app by running <code>python manage.py startapp [app_label]</code>.
+  </p>
+</div>
+
+<div id="explanation">
+  <p>
+    You're seeing this message because you have <code>DEBUG = True</code> in your Django settings file and you haven't configured any URLs. Get to work!
+  </p>
+</div>
+</body></html>
+mark@viking:~/workspace/venv2docker/bin$
+```
+
+##### Step 8: remove the container and image
+
+```bash
+mark@viking:~/workspace/venv2docker/bin$ docker ps -a
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS                    NAMES
+473f81f4fbe8        django_v2d          "python manage.py run"   2 minutes ago       Up 2 minutes        0.0.0.0:8000->8000/tcp   gloomy_mestorf
+mark@viking:~/workspace/venv2docker/bin$ docker stop 473f81f4fbe8
+473f81f4fbe8
+mark@viking:~/workspace/venv2docker/bin$ docker rm 473f81f4fbe8
+473f81f4fbe8
+mark@viking:~/workspace/venv2docker/bin$ docker images
+REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
+django_v2d          latest              1ad9d3bd337a        10 minutes ago      200.1 MB
+debian              jessie              f50f9524513f        8 days ago          125.1 MB
+mark@viking:~/workspace/venv2docker/bin$ docker rmi django_v2d
+Untagged: django_v2d:latest
+Deleted: sha256:1ad9d3bd337a115bf86427b00dfa7153a7856d5c535a189009c8d3c2af0bfcf4
+...
+mark@viking:~/workspace/venv2docker/bin$
+```

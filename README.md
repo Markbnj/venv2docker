@@ -463,7 +463,7 @@ Example:
 `venv2docker --entrypoint=python my_test_env`
 
 Use this argument to specify the command to serve as the entrypoint for the image
-at startup. For more information see [Entrypoints and passing arguments](#Entrypoints-and-passing-arguments).
+at startup. For more information see [Entrypoints and passing arguments](#entrypoints-and-passing-arguments).
 
 
 

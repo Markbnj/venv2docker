@@ -930,7 +930,7 @@ mark@viking:~/workspace/venv2docker/bin$
 
 ```bash
 mark@viking:~/workspace/venv2docker/bin$ curl localhost:8000
-
+```
 <!DOCTYPE html>
 <html lang="en"><head>
   <meta http-equiv="content-type" content="text/html; charset=utf-8">
@@ -979,6 +979,7 @@ mark@viking:~/workspace/venv2docker/bin$ curl localhost:8000
   </p>
 </div>
 </body></html>
+```bash
 mark@viking:~/workspace/venv2docker/bin$
 ```
 

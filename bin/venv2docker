@@ -95,7 +95,7 @@ show_help() {
     printf "\t-s, --skip-image\t\tGenerate the dockerfile but skip building.\n"
     printf "\t-t, --tag=TAG\t\t\tUse TAG as the tag for the built image.\n"
     printf "\t-u, --user=USER\t\t\tChange to USER before running entrypoint.\n"
-    printf "\t-w, --workdir=DIR\t\tChange to DIR before running entrypoint.\n"
+    printf "\t-w, --workdir=PATH\t\tChange to DIR before running entrypoint.\n"
     echo
     echo "More examples:"
     echo

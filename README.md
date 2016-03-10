@@ -98,7 +98,7 @@ Options:
     -s, --skip-image        Generate the dockerfile but skip building.
     -t, --tag=TAG           Use TAG as the tag for the built image.
     -u, --user=USER         Change to USER before running entrypoint.
-    -w, --workdir=DIR       Change to DIR before running entrypoint.
+    -w, --workdir=PATH      Change to DIR before running entrypoint.
 ```
 
 When you run venv2docker it first finds and verifies either the current active
@@ -248,7 +248,7 @@ any other process running in that same container can connect to it there, but
 processes (such as a web client) that are running on the host cannot.
 
 If your image implements a process that you need to connect to from outside
-you can use the `-p|--ports` option to venv2docker to specify which ports you
+you can use the `--ports` option to venv2docker to specify which ports you
 want to make available to the outside world:
 
 `venv2docker --ports=80,443 image_name`
@@ -487,7 +487,206 @@ Example:
 By default venv2docker installs the virtualenv binaries and library dependencies into
 /usr/local/lib. Use this argument to override the default and specify a different install path.
 
+----
 
+###### --maintainer=NAME'
+
+Example:
+
+`venv2docker --maintainer='Mark Betz <betz.mark@no_way.com' my_test_env`
+
+Use this argument to set the maintainer string inside the docker image.
+
+----
+
+###### -n/--name=NAME'
+
+Example:
+
+`venv2docker --name=myrepo/myimage my_test_env`
+
+Use this argument to set the name you want to assign to the built docker image.
+The name must include a repository if you want to push it to the docker hub using
+either the `-p/--push` option or by manual command. If a name is not supplied
+then venv2docker will use the virtualenv name.
+
+----
+
+###### --no-dangling
+
+Example:
+
+`venv2docker --no-dangling my_test_env`
+
+Use this argument to cause venv2docker to remove the existing docker image before
+building the new one. The default behavior is to leave the previous image in place,
+which will result in it being untagged and accessible only by ID. This behavior
+can be valuable to "roll back" to a previous version, but if you don't want to
+have to occasionally clean out untagged images use this option. To be removed the
+image repository, name, and tag must match those of the new image being built.
+
+----
+
+###### --no-log
+
+Example:
+
+`venv2docker --no-log my_test_env`
+
+Ordinarily venv2docker logs the output of the `docker build` command to a file
+named `build.log` in the build directory (.venv2docker by default). Use this
+option to skip generating the log file.
+
+----
+
+###### --no-project-path
+
+Example:
+
+`venv2docker --no-project-path my_test_env`
+
+By default venv2docker will add the root folder of your project to the system
+PATH variable inside the image. Using the default settings this folder will be
+/usr/local/bin/my_project. Use this option to prevent adding the folder to the
+system path.
+
+----
+
+###### --no-project-pypath
+
+Example:
+
+`venv2docker --no-project-pypath my_test_env`
+
+By default venv2docker will add the root folder of your project to the PYTHONPATH
+variable inside the image. Using the default settings this folder will be
+/usr/local/bin/my_project. Use this option to prevent adding the folder to the
+python path.
+
+----
+
+###### --paths=PATH[,PATH][...]
+
+Example:
+
+`venv2docker --paths=/etc/stuff,/etc/mystuff my_test_env`
+
+Use this option to specify additional paths to be added to the system path when the
+image is built. Paths must be absolute and separated by commas.
+
+----
+
+###### --pip=FILE
+
+Example:
+
+`venv2docker --pip=/etc/stuff/requirements.txt my_test_env`
+
+Use this option to specify a path to a file containing additional pip requirements to
+be installed in the image. The file will be copied into the venv2docker build
+directory, renamed to requirements.txt, added into the image and installed during
+the next build step.
+
+----
+
+###### --ports=PORT[,PORT][...]
+
+Example:
+
+`venv2docker --ports=80,443 my_test_env`
+
+Use this option to specify ports to be exposed on the container at runtime. For
+more information see [Ports](#ports).
+
+----
+
+###### -p|--push
+
+Example:
+
+`venv2docker --push my_test_env`
+
+Use this argument to instruct venv2docker to push your image to a registry after a
+successful build. For this option to succeed the image name must include a repository
+name/url.
+
+----
+
+###### --pypaths=PATH[,PATH][...]
+
+Example:
+
+`venv2docker --pypaths=/etc/stuff,/etc/mystuff my_test_env`
+
+Use this argument to specify additional paths to be added to the python path inside
+the image. Paths must be absolute and separated by commas.
+
+----
+
+###### -r|--run
+
+Example:
+
+`venv2docker --run my_test_env`
+
+NOT IMPLEMENTED AT THIS TIME.
+
+----
+
+###### -s|--skip-image
+
+Example:
+
+`venv2docker --skip-image my_test_env`
+
+Use this option to cause venv2docker to assemble the necessary files and create
+the dockerfile, but skip building the actual image.
+
+----
+
+###### -t|--tag=TAG
+
+Example:
+
+`venv2docker --name=myrepo/myimage --tag=dev my_test_env`
+
+Docker uses a tag system for versioning images of the same name within a single
+repository. By default the tag "latest" is assigned to all images that do not
+specify a specific tag value. Use this argument to override the default tag
+and set your own. Note that only the "latest" tag is implicit in docker commands.
+All other tags must be explicitly specified when identifying images.
+
+----
+
+###### -u|--user=USER
+
+Example:
+
+`venv2docker --user=my_user my_test_env`
+
+By default all docker commands run inside an image run as the root user, and
+all processes started in the container at runtime execute as the root user.
+The docker build command offers the USER directive which causes the specified
+user to become the active user for all commands subsequent to the directive
+in the dockerfile. Aso the last USER specified will be the user for processes
+launched then when the container is started. This option offers limited
+support for switching the user. It is limited in that it happens once, right
+before the ENTRYPOINT directive. So it is not possible to switch users, run
+some command at build time, and then switch back.
+
+----
+
+###### -w|--workdir=PATH
+
+Example:
+
+`venv2docker --workdir=/etc/mystuff/bin my_test_env`
+
+The default working directory for processes created inside a docker container
+at runtime is the root folder '/'. The default behavior of venv2docker is to
+set the working directory to the root folder of your project using a WORKDIR
+directive in the dockerfile. Use this argument to specify a different working
+directory.
 
 
 ## Tutorial: a quickie django image

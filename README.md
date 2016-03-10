@@ -9,7 +9,7 @@ container at runtime.
 
 It's a good question! Physically migrating your virtualenv into a docker
 container is probably not a good way to proceed for production deployments,
-where most engineers will wante to freeze pip requirements, recreate the
+where most engineers will want to freeze pip requirements, recreate the
 environment inside a clean image, and then clone the code repository into
 it. That gives you a declarative recipe for recreating the runtime
 environment, as well as confidence that what was committed to the repo is what
@@ -75,7 +75,7 @@ Options:
     --apt=PACKAGES          Use apt-get to install PACKAGES at build.
     --apt=FILE              Install each package in FILE at build.
     --args=ARGS             Pass ARGS to entrypoint command line.
-    -b, --base=BASE         Use BASE as the base image.
+    -b, --base=IMAGE        Use BASE as the base image.
     --bin_path=PATH         Install the project folder to PATH in the image.
     -c, --clean             Perform build clean step and exit
 .   -d, --debug             Print diagnostic information after build.
@@ -359,4 +359,47 @@ of a project. If you need to install packages with apt you can do so using the `
 option as shown above. Packages are installed after `apt-get update -y` is run, and
 before any additional pip dependencies are installed.
 
+## Options
 
+The following command line paramters control various aspects of the final image
+produced by venv2docker.
+
+### --apt=PACKAGE[,PACKAGE][...]
+### --apt=FILE
+
+Example:
+
+`venv2docker --apt=libxml2,libxslt1-dev my_test_env`
+`venv2docker --apt=path/to/file.txt my_test_env`
+
+Use to install extra dependencies at build time. Takes either a comma-delimited
+list of package names, or the path to a text file with one package per line.
+
+The script installs apt packages by running `apt-get update` and then
+`apt-get install`. Packages are installed as the first step in the image build
+process.
+
+### --args=ARG[,ARG][...]
+
+Example:
+
+`venv2docker --entrypoint=python --args=manage.py,runserver my_test_env`
+
+Use to pass arguments to an entrypoint command. Takes a comma-delimited list
+of argument strings, each of which is appended as-is to the arguments list
+of the ENTRYPOINT directive in the generated dockerfile.
+
+### -b|--base=IMAGE
+
+Example:
+
+`venv2docker --base=ubuntu:15.10 my_test_env`
+
+Docker images that you create are layered on top of an existing, or "base"
+image that contains the operating system dependencies. By default venv2docker
+will use the debian:jessie base image from the Docker hub. Use this argument
+to override the default and use a different base image.
+
+
+
+## Tutorial: a quickie django image

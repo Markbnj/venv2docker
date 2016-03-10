@@ -794,7 +794,8 @@ Quit the server with CONTROL-C.
 
 ```bash
 mark@viking:~/workspace/django_v2d$ curl localhost:8000
-
+```
+```html
 <!DOCTYPE html>
 <!-- ... -->
 <body>
@@ -815,6 +816,8 @@ mark@viking:~/workspace/django_v2d$ curl localhost:8000
   </p>
 </div>
 </body></html>
+```
+```bash
 mark@viking:~/workspace/django_v2d$
 ```
 
@@ -902,6 +905,8 @@ mark@viking:~/workspace/venv2docker/bin$
 
 ```bash
 mark@viking:~/workspace/venv2docker/bin$ curl localhost:8000
+```
+```html
 <!DOCTYPE html>
 <!-- ... -->
 <body>
@@ -922,6 +927,8 @@ mark@viking:~/workspace/venv2docker/bin$ curl localhost:8000
   </p>
 </div>
 </body></html>
+```
+```bash
 mark@viking:~/workspace/venv2docker/bin$
 ```
 

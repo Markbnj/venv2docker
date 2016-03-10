@@ -76,13 +76,13 @@ Options:
     --apt=FILE              Install each package in FILE at build.
     --args=ARGS             Pass ARGS to entrypoint command line.
     -b, --base=IMAGE        Use BASE as the base image.
-    --bin_path=PATH         Install the project folder to PATH in the image.
+    --bin-path=PATH         Install the project folder to PATH in the image.
     -c, --clean             Perform build clean step and exit
 .   -d, --debug             Print diagnostic information after build.
-    --dockerdir=DIR         Use DIR for build files (defaults to .venv2docker).
+    --dockerdir=PATH        Use DIR for build files (defaults to .venv2docker).
     --entrypoint=COMMAND    Execute COMMAND as entrypoint at startup.
     -e, --env=ENV           Set variables in ENV inside image.
-    --lib_path=PATH         Install the venv directories to PATH in the image.
+    --lib-path=PATH         Install the venv directories to PATH in the image.
     --maintainer=NAME       Use NAME as the maintainer string in the image.
     -n, --name=NAME         Use NAME as the committed image name.
     --no-dangling           Remove an existing image before building.
@@ -405,6 +405,65 @@ Docker images that you create are layered on top of an existing, or "base"
 image that contains the operating system dependencies. By default venv2docker
 will use the debian:jessie base image from the Docker hub. Use this argument
 to override the default and use a different base image.
+
+----
+
+###### --bin-path=PATH
+
+Example:
+
+`venv2docker --base=ubuntu:15.10 --bin-path=/etc/stuff my_test_env`
+
+The venv2docker script installs your python code into /usr/local/bin by default.
+Use this argument to override the default behavior and install the project to
+a different path in the image.
+
+----
+
+###### -c|--clean
+
+Example:
+
+`venv2docker --clean`
+
+Overrides all other options and causes the venv2docker script to remove the content
+of the build folder, and the folder itself if possible, and then exit. If any content
+has been copied into that folder it will not be removed, and the folder will be left
+on disk.
+
+----
+
+###### -d|--debug
+
+Example:
+
+`venv2docker --debug`
+
+Prints the values of some internal variables after the image build completes.
+
+----
+
+###### --dockerdir=PATH
+
+Example:
+
+`venv2docker --dockerdir=.docker my_test_env`
+
+By default venv2docker places the generated dockerfile, the archived project and
+system dependencies, and the build log into a folder it creates under your project
+root named `.venv2docker`. Use this option to override the default and specify a
+different folder name.
+
+----
+
+###### --entrypoint=COMMAND
+
+Example:
+
+`venv2docker --entrypoint=python my_test_env`
+
+Use this argument to specify the command to serve as the entrypoint for the image
+at startup. For more information see [Entrypoints and passing arguments](#entrypoints-and-passing-arguments).
 
 
 

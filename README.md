@@ -233,7 +233,7 @@ a script, such as refer to an environment variable:
 `venv2docker --entrypoint=python --args=manage.py,runserver,${IP}:${PORT}`
 
 If you want to change the behavior of the container after the image is built
-you can do it by setting environment variables at run as shown below. You can
+you can do it by setting environment variables at run time as shown below. You can
 also append new arguments to the list of those to be passed to the entrypoint
 by passing them to the `docker run` command:
 

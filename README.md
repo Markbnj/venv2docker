@@ -7,10 +7,10 @@ container at runtime.
 
 ## Releases
 
-##### [0.1.0-beta](https://github.com/Markbnj/venv2docker/releases/tag/v0.1.0-beta)
-  3/11/2015, first primarily feature-complete release.
 ##### [0.1.1-beta](https://github.com/Markbnj/venv2docker/releases/tag/v0.1.0-beta)
-  3/11/2015, added code to install python into debian:jessie by default.
+  * 3/11/2015, added code to install python into debian:jessie by default.
+##### [0.1.0-beta](https://github.com/Markbnj/venv2docker/releases/tag/v0.1.0-beta)
+  * 3/11/2015, first primarily feature-complete release.
 
 ## Documentation
 
@@ -30,7 +30,7 @@ container at runtime.
 * [Options](#options)
 * [Tutorial: a quickie django image](#tutorial-a-quickie-django-image)
 
-## Why?
+### Why?
 
 It's a good question! Physically migrating your virtualenv into a docker
 container is probably not a good way to proceed for production deployments,
@@ -48,7 +48,7 @@ understand it better, were enough justification for me to create this program.
 Not to mention that it's a pretty good demo project: in one file you have
 concerns of python, docker, and bash scripting. What's not to like?
 
-## Pre-release
+### Pre-release
 
 venv2docker is early. It has been tested on a very limited number of platforms
 (ubuntu 15.10 and debian jessie), against a very limited number of
@@ -66,7 +66,7 @@ build folder (which you can change, see "Options" below).
 4. All other writes take place inside the docker image and the host system docker registry.
 5. It cleans up after itself.
 
-## Prerequisites
+### Prerequisites
 
 venv2docker requires docker to be installed, of course. If you don't have it
 you can [get it here](https://docs.docker.com/linux/step_one/).
@@ -74,13 +74,13 @@ you can [get it here](https://docs.docker.com/linux/step_one/).
 A working python and [virtualenv](https://virtualenv.readthedocs.org/en/latest/)
 installation is also required.
 
-## Installation
+### Installation
 
 Either grab the latest release archive from the links at the top, or clone the repository
 to get latest. You can either run the script right in the bin directory or put it on the path.
 The script is standalone and you can copy it anywhere you like.
 
-## Use
+### Use
 
 ```
 venv2docker [OPTION]... [VIRTUALENV]
@@ -140,7 +140,7 @@ Pretty much everything else involves the script options which control how
 the dockerfile is generated and thus what the content and behavior of the
 resulting image is.
 
-## Relocation and --relocatable
+### Relocation and --relocatable
 
 Relocating a virtualenv is what we're doing when we move it into a docker
 container, i.e. we are lifting it out of one file system and moving it into
@@ -176,22 +176,20 @@ hasn't been tested on venvs created that way. It _should_ work, but if you run
 into issues with it, or with any other aspect of relocating the env into a docker
 container please open an issue here so I can follow up on it.
 
-## Architecture and base image compatibility
+### Architecture and base image compatibility
 
 Often the only thing you care about when deploying docker containers is that
 the host machine is running a compatible version of the linux kernel. Not so with
 virtualenvs. The constraints are a little tighter. There are at least two reasons
 for this.
 
-The first is that virtualenv doesn't replicate your whole system python installation.
-It's reason for existing is to isolate installed dependencies. So instead of copying
-all the stable system python libraries into the virtualenv it symlinks to them. What
-this means is that if you try to move a virtualenv to an architecture in which the
-system python install is either missing, or installed to a different location than
-the platform on which you built the venv, it will fail to run correctly. If you start
-the interpreter in the image and see messages about missing platform-dependent or
--independent libraries, or missing `site.py` then the image into which you are moving
-the venv either doesn't have python installed, or has it somewhere else.
+The first is that virtualenv symlinks to a lot of files and directories in the system
+python installation. What this means is that if you try to move a virtualenv to a
+different platform it may fail to run if python is in a different place or missing
+altogether. It's for this reason that the script automatically installs python into
+the default `debian:jessie` base image if you don't. If you start the interpreter in
+the image and see messages about missing platform-dependent or -independent libraries,
+or missing `site.py` then you have a python installation incompatibility.
 
 The second is simply that virtualenv builds libraries for the environment on which
 they are being installed, in some cases even compiling C code in the process. If
@@ -201,7 +199,7 @@ it may not work.
 The bottomn line is that you can use these tools to move virtualenvs between
 compatible platforms. If you violate that constraint YMMV.
 
-## Entrypoints and passing arguments
+### Entrypoints and passing arguments
 
 While you may just want an image you can shell into and play around or test with,
 more often your virtualenv will contain some program that you want to run, and
@@ -274,7 +272,7 @@ as shown above, the text of the command will get appended to the list of args
 to the entrypoint as described above, so it is important to understand the
 differences when you do or don't have an entrypoint defined.
 
-## Ports
+### Ports
 
 A docker container is connected internally to a virtual ethernet interface. It
 has its own IP and port ranges separate from the host system. This means that
@@ -302,7 +300,7 @@ which port on the host to connect it to. That is done in the `docker run` comman
 The ports on the host and container don't need to match, giving you a lot of flexibility
 in how you connect to your service from outside.
 
-## Running the image
+### Running the image
 
 Once your image is successfully built you can use the `docker run` command to start
 and test it. Exactly how you use this command depends on the options you used when
@@ -333,7 +331,7 @@ containers use `docker ps -a`.
 
 More information can be found in [the docker run reference](https://docs.docker.com/engine/reference/run/).
 
-## Debugging techniques
+### Debugging techniques
 
 A docker container, especially one running in detached mode in the background, can
 seem like an inscrutable black box when something goes wrong. Why didn't it start?
@@ -356,7 +354,7 @@ For example, to get a shell inside a running container:
 
 `docker exec -it <container_name_or_id> /bin/bash`
 
-## Examples:
+### Examples:
 
 `venv2docker`
 
@@ -394,7 +392,7 @@ of a project. If you need to install packages with apt you can do so using the `
 option as shown above. Packages are installed after `apt-get update -y` is run, and
 before any additional pip dependencies are installed.
 
-## Options
+### Options
 
 The following command line parameters control various aspects of the final image
 produced by venv2docker.
@@ -735,7 +733,7 @@ Example:
 
 Suppresses the confirmation prompt normally displayed before the image builds.
 
-## Tutorial: a quickie django image
+### Tutorial: a quickie django image
 
 A quick walk-through of the whole process for a quick-start django image. Hardly
 deserves to be called a tutorial, but really there isn't all that much to it.

@@ -173,19 +173,28 @@ container please open an issue here so I can follow up on it.
 
 ## Architecture and base image compatibility
 
-Very often the only thing you care about when deploying docker containers is that
+Often the only thing you care about when deploying docker containers is that
 the host machine is running a compatible version of the linux kernel. Not so with
-virtualenvs. The constraints are a little tighter. The main reason for this is that
-virtualenv doesn't replicate your whole system python installation. It's reason
-for existing is to isolate installed dependencies. So instead of copying all the
-stable system python libraries into the virtualenv it symlinks to them.
+virtualenvs. The constraints are a little tighter. There are at least two reasons
+for this.
 
-What this means is that if you try to move a virtualenv to an architecture in which
-the system python install is either missing, or installed to a different location
-than the platform on which you built the venv, it will fail to run correctly. If you
-start the interpreter in the image and see messages about missing platform-dependent or
--independent libraries, or missing `site.py` then the image into which you are
-moving the venv either doesn't have python installed, or has it somewhere else.
+The first is that virtualenv doesn't replicate your whole system python installation.
+It's reason for existing is to isolate installed dependencies. So instead of copying
+all the stable system python libraries into the virtualenv it symlinks to them. What
+this means is that if you try to move a virtualenv to an architecture in which the
+system python install is either missing, or installed to a different location than
+the platform on which you built the venv, it will fail to run correctly. If you start
+the interpreter in the image and see messages about missing platform-dependent or
+-independent libraries, or missing `site.py` then the image into which you are moving
+the venv either doesn't have python installed, or has it somewhere else.
+
+The second is simply that virtualenv builds libraries for the environment on which
+they are being installed, in some cases even compiling C code in the process. If
+you try to move a venv created on a 32-bit platform to one running a 64-bit kernel
+it may not work.
+
+The bottomn line is that you can use these tools to move virtualenvs between
+compatible platforms. If you violate that constraint YMMV.
 
 ## Entrypoints and passing arguments
 

@@ -71,9 +71,9 @@ installation is also required.
 
 ## Installation
 
-Just grab the repository and either run the script right in the bin directory
-or put it on the path. The script is standalone and you can copy it anywhere
-you like.
+Either grab the latest release archive from the links at the top, or clone the repository
+to get latest. You can either run the script right in the bin directory or put it on the path.
+The script is standalone and you can copy it anywhere you like.
 
 ## Use
 

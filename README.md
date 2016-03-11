@@ -5,6 +5,10 @@ a docker container. The script supports numerous options for controlling
 the content of the image at build time, as well as the behavior of the
 container at runtime.
 
+## Releases
+
+### [0.1.0-beta](https://github.com/Markbnj/venv2docker/releases/tag/v0.1.0-beta) - 3/11/2015
+
 ## Table of Contents
 * [Why](#why)
 * [Pre-release](#pre-release)

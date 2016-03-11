@@ -14,7 +14,7 @@
 #
 # Project home page: https://github.com/Markbnj/venv2docker
 
-version="0.0.1"
+version="0.1.0"
 venv_root="${VIRTUALENVWRAPPER_HOOK_DIR}/"
 image_name=
 tag="latest"

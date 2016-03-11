@@ -12,7 +12,9 @@ container at runtime.
 ##### [0.1.1-beta](https://github.com/Markbnj/venv2docker/releases/tag/v0.1.0-beta)
   3/11/2015, added code to install python into debian:jessie by default.
 
-## Table of Contents
+## Documentation
+
+### Table of Contents
 * [Why](#why)
 * [Pre-release](#pre-release)
 * [Prerequisites](#prerequisites)

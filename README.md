@@ -8,6 +8,7 @@ container at runtime.
 ## Releases
 
 #### [0.1.0-beta](https://github.com/Markbnj/venv2docker/releases/tag/v0.1.0-beta) - 3/11/2015
+#### [0.1.1-beta](https://github.com/Markbnj/venv2docker/releases/tag/v0.1.0-beta) - 3/11/2015
 
 ## Table of Contents
 * [Why](#why)
@@ -433,8 +434,10 @@ Example:
 
 Docker images that you create are layered on top of an existing, or "base"
 image that contains the operating system dependencies. By default venv2docker
-will use the debian:jessie base image from the Docker hub. Use this argument
-to override the default and use a different base image.
+will use the debian:jessie base image from the Docker hub, and will automatically
+install python into this image at build time if the user hasn't specified it on
+the command line using `--apt`. Use this argument to override the default and use
+a different base image.
 
 ----
 
@@ -847,11 +850,12 @@ mark@viking:~/workspace/django_v2d$
 ##### Step 7: build the docker image
 
 ```bash
-mark@viking:~/venv2docker/bin$ ./venv2docker --apt=python --entrypoint=python --args=manage.py,runserver,0.0.0.0:8000 --name=django_v2d --ports=8000 --no-dangling django_v2d
+mark@viking:~/venv2docker/bin$ ./venv2docker --entrypoint=python --args=manage.py,runserver,0.0.0.0:8000 --name=django_v2d --ports=8000 --no-dangling django_v2d
 ```
-A couple of things to note. First the standard debian image which venv2docker uses doesn't have python
-2 installed, so the --apt option is used to install that first. Also an argument is added to tell
-the django development server to bind to 0.0.0.0 so that we can connect from the host system.
+
+Note that an argument is added to tell the django development server to bind to 0.0.0.0 so
+that we can connect from the host system. Without this it will bind to 127.0.0.1 and won't
+be able to accept traffic across the bridge from the host.
 
 After the build completes the image has been added to the local docker repository, and the
 project directory now contains the build directory as shown:

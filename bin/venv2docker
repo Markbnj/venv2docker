@@ -14,14 +14,15 @@
 #
 # Project home page: https://github.com/Markbnj/venv2docker
 
-version="0.1.0-beta"
+version="0.1.1-beta"
 venv_root="${VIRTUALENVWRAPPER_HOOK_DIR}/"
 image_name=
 tag="latest"
 venv=
 projectpath=
 projectdir=
-base="debian:jessie"
+default_base="debian:jessie"
+base=$default_base
 entrypoint=
 no_image=false
 push_image=false
@@ -400,28 +401,41 @@ emit_dockerfile_header() {
 # if there are apt commands in $apt then figure out if they
 # are package names or a file path and act accordingly
 emit_dockerfile_apt_reqs() {
-    if [ ! -z "${apt}" ]; then
+    if [ ! -z "${apt}" ] || [ "${base}" = "${default_base}" ]; then
+        local have_python=false
+
         dockerfile+=(" ")
         dockerfile+=("# apt dependencies")
         dockerfile+=("RUN apt-get update -y")
         installcmd="RUN apt-get install -y"
-        if [[ $apt == "/*" ]]; then
-            apt_path=$apt
-        else
-            apt_path=$projectpath/$apt
+        if [ ! -z "${apt}" ]; then
+            if [[ $apt == "/*" ]]; then
+                apt_path=$apt
+            else
+                apt_path=$projectpath/$apt
+            fi
+            if [ -f "${apt_path}" ]; then
+                echo "Adding apt packages in ${apt_path} ..."
+                for package in $(cat ${apt_path}); do
+                    if [[ ${package} == "python*" ]]; then
+                        have_python=true
+                    fi
+                    installcmd=${installcmd}" ${package}"
+                done
+            else
+                echo "Adding apt packages from command line ..."
+                apt_split=($(echo ${apt} | tr "," "\n"))
+                for package in ${apt_split[@]}; do
+                    if [[ ${package} == "python*" ]]; then
+                        have_python=true
+                    fi
+                    installcmd=${installcmd}" ${package}"
+                done
+                unset apt_split
+            fi
         fi
-        if [ -f "${apt_path}" ]; then
-            echo "Adding apt packages in ${apt_path} ..."
-            for package in $(cat ${apt_path}); do
-                installcmd=${installcmd}" ${package}"
-            done
-        else
-            echo "Adding apt packages from command line ..."
-            apt_split=($(echo ${apt} | tr "," "\n"))
-            for package in ${apt_split[@]}; do
-                installcmd=${installcmd}" ${package}"
-            done
-            unset apt_split
+        if [ "${base}" = "${default_base}" ] && [ "${have_python}" = "false" ]; then
+            installcmd=${installcmd}" python"
         fi
         dockerfile+=("${installcmd}")
         unset apt_path

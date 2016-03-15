@@ -132,14 +132,45 @@ show_help() {
     fi
 }
 
-# check to make sure the docker command is available, display an
-# error and exit if it is not.
-ensure_docker() {
-    docker=$(which docker)
-    if [ -z "${docker}" ]; then
+# check to make sure the external commands that we're going to use are
+# installed. Other than docker the rest of these should be available on
+# any system that has bash, but its possible this gets run inside a
+# minimal container or something, and in any case might as well check.
+ensure_prereqs() {
+    if ! hash docker 2>/dev/null; then
         echo "Error: 'docker' command not found."
         echo "This program requires docker to be installed locally."
         echo "See https://docs.docker.com/linux/step_one/ for more information."
+        exit 1
+    fi
+    if ! hash getopt 2>/dev/null; then
+        echo "Error: 'getopt' command not found."
+        echo "This program requires GNU getopt to be installed."
+        echo "See http://linux.die.net/man/1/getopt for more information."
+        exit 1
+    fi
+    if ! hash tar 2>/dev/null; then
+        echo "Error: 'tar' command not found."
+        echo "This program requires tar to be installed."
+        echo "See http://linux.die.net/man/1/tar for more information."
+        exit 1
+    fi
+    if ! hash gzip 2>/dev/null; then
+        echo "Error: 'gzip' command not found."
+        echo "This program requires gzip to be installed."
+        echo "See http://linux.die.net/man/1/gzip for more information."
+        exit 1
+    fi
+    if ! hash grep 2>/dev/null; then
+        echo "Error: 'grep' command not found."
+        echo "This program requires grep to be installed."
+        echo "See http://linux.die.net/man/1/grep for more information."
+        exit 1
+    fi
+    if ! hash sed 2>/dev/null; then
+        echo "Error: 'sed' command not found."
+        echo "This program requires sed to be installed."
+        echo "See http://linux.die.net/man/1/sed for more information."
         exit 1
     fi
 }
@@ -706,6 +737,7 @@ post_build_banner() {
     if [[ "${tag}" -ne "latest" ]]; then
         tagopt=":${tag}"
     fi
+    echo "venv2docker completed successfully."
     echo
     echo "The following command can be used to test your docker image:"
     echo
@@ -951,7 +983,7 @@ confirm_make() {
 
 echo "venv2docker ${version}"
 echo
-ensure_docker
+ensure_prereqs
 ensure_venv
 if [ "$clean_only" = "true" ]; then
     if [ "${no_prompt}" = "false" ]; then

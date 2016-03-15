@@ -78,6 +78,8 @@ you can [get it here](https://docs.docker.com/linux/step_one/).
 A working python and [virtualenv](https://virtualenv.readthedocs.org/en/latest/)
 installation is also required.
 
+Lastly the script requires tar, gzip, grep, sed, and getopt.
+
 ### Installation
 
 Either grab the latest release archive from the links at the top, or clone the repository
@@ -539,7 +541,7 @@ Use this argument to set the maintainer string inside the docker image.
 
 ----
 
-###### -n/--name=NAME'
+###### -n|--name=NAME'
 
 Example:
 

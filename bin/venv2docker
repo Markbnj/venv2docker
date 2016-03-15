@@ -14,7 +14,7 @@
 #
 # Project home page: https://github.com/Markbnj/venv2docker
 
-version="0.1.1-beta"
+version="0.1.2-beta"
 venv_root="${VIRTUALENVWRAPPER_HOOK_DIR}/"
 image_name=
 tag="latest"
@@ -208,12 +208,12 @@ clean_build() {
             exit 1
         fi
     fi
-    if [ -f "${projectpath}/${dockerdir}/venv_local_lib.tar.gz" ]; then
-        echo "Removing ${projectpath}/${dockerdir}/venv_local_lib.tar.gz ..."
-        if $(rm ${projectpath}/${dockerdir}/venv_local_lib.tar.gz); then
-            echo "${projectpath}/${dockerdir}/venv_local_lib.tar.gz removed"
+    if [ -f "${projectpath}/${dockerdir}/venv_local.tar.gz" ]; then
+        echo "Removing ${projectpath}/${dockerdir}/venv_local.tar.gz ..."
+        if $(rm ${projectpath}/${dockerdir}/venv_local.tar.gz); then
+            echo "${projectpath}/${dockerdir}/venv_local.tar.gz removed"
         else
-            echo "Error: failed to remove ${projectpath}/${dockerdir}/venv_local_lib.tar.gz; check file and directory permissions"
+            echo "Error: failed to remove ${projectpath}/${dockerdir}/venv_local.tar.gz; check file and directory permissions"
             exit 1
         fi
     fi
@@ -368,10 +368,10 @@ setup_build() {
         echo "Warning: ${venv_root}${venv}/lib not found; skipping"
     fi
 
-    if [ -d "${venv_root}${venv}/local/lib" ]; then
-        process_venv_directory ${venv_root} ${venv}/local/lib ${tmpdir} venv_local_lib
+    if [ -d "${venv_root}${venv}/local" ]; then
+        process_venv_directory ${venv_root} ${venv}/local ${tmpdir} venv_local
     else
-        echo "Warning: ${venv_root}${venv}/local/lib not found; skipping"
+        echo "Warning: ${venv_root}${venv}/local not found; skipping"
     fi
 
     echo "Removing temporary directory ..."
@@ -504,10 +504,10 @@ emit_dockerfile_install_commands() {
         dockerfile+=("COPY venv_lib.tar.gz ${lib_path}")
         dockerfile+=("RUN cd ${lib_path} && tar xfz venv_lib.tar.gz && rm venv_lib.tar.gz")
     fi
-    if [ -f "venv_local_lib.tar.gz" ]; then
-        echo "Adding venv_local_lib.tar.gz"
-        dockerfile+=("COPY venv_local_lib.tar.gz ${lib_path}")
-        dockerfile+=("RUN cd ${lib_path} && tar xfz venv_local_lib.tar.gz && rm venv_local_lib.tar.gz")
+    if [ -f "venv_local.tar.gz" ]; then
+        echo "Adding venv_local.tar.gz"
+        dockerfile+=("COPY venv_local.tar.gz ${lib_path}")
+        dockerfile+=("RUN cd ${lib_path} && tar xfz venv_local.tar.gz && rm venv_local.tar.gz")
     fi
 }
 
@@ -531,6 +531,23 @@ emit_dockerfile_env_vars() {
         done
         unset env_split
     fi
+}
+
+# In the virtualenv the local directory contains symlinks back
+# to the top-level directories, i.e. local/lib symlinks to
+# .virtualenvs/<venv>/lib, etc. This function emits commands to
+# fix those symlinks up to point to the correct places in the
+# image.
+emit_dockerfile_link_fix() {
+    echo "Replacing local/ symlinks ..."
+    dockerfile+=(" ")
+    dockerfile+=("# fix virtualenv symlinks")
+    dockerfile+=("RUN rm ${lib_path}${projectdir}/local/bin && \\ ")
+    dockerfile+=("ln -s ${lib_path}${projectdir}/bin ${lib_path}${projectdir}/local/bin && \\ ")
+    dockerfile+=("rm ${lib_path}${projectdir}/local/include && \\ ")
+    dockerfile+=("ln -s ${lib_path}${projectdir}/include ${lib_path}${projectdir}/local/include && \\ ")
+    dockerfile+=("rm ${lib_path}${projectdir}/local/lib && \\ ")
+    dockerfile+=("ln -s ${lib_path}${projectdir}/lib ${lib_path}${projectdir}/local/lib")
 }
 
 # create the dockerfile commands to expose any ports required
@@ -653,6 +670,7 @@ emit_dockerfile() {
     emit_dockerfile_apt_reqs
     emit_dockerfile_install_commands
     emit_dockerfile_env_vars
+    emit_dockerfile_link_fix
     emit_dockerfile_ports
     emit_dockerfile_paths
     emit_dockerfile_pip_reqs

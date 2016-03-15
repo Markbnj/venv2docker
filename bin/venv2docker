@@ -181,39 +181,12 @@ clean_build() {
             exit 1
         fi
     fi
-    if [ -f "${projectpath}/${dockerdir}/venv_bin.tar.gz" ]; then
-        echo "Removing ${projectpath}/${dockerdir}/venv_bin.tar.gz ..."
-        if $(rm ${projectpath}/${dockerdir}/venv_bin.tar.gz); then
-            echo "${projectpath}/${dockerdir}/venv_bin.tar.gz removed"
+    if [ -f "${projectpath}/${dockerdir}/${venv}.sys.tar.gz" ]; then
+        echo "Removing ${projectpath}/${dockerdir}/${venv}.sys.tar.gz ..."
+        if $(rm ${projectpath}/${dockerdir}/${venv}.sys.tar.gz); then
+            echo "${projectpath}/${dockerdir}/${venv}.sys.tar.gz removed"
         else
-            echo "Error: failed to remove ${projectpath}/${dockerdir}/venv_bin.tar.gz; check file and directory permissions"
-            exit 1
-        fi
-    fi
-    if [ -f "${projectpath}/${dockerdir}/venv_include.tar.gz" ]; then
-        echo "Removing ${projectpath}/${dockerdir}/venv_include.tar.gz ..."
-        if $(rm ${projectpath}/${dockerdir}/venv_include.tar.gz); then
-            echo "${projectpath}/${dockerdir}/venv_include.tar.gz removed"
-        else
-            echo "Error: failed to remove ${projectpath}/${dockerdir}/venv_include.tar.gz; check file and directory permissions"
-            exit 1
-        fi
-    fi
-    if [ -f "${projectpath}/${dockerdir}/venv_lib.tar.gz" ]; then
-        echo "Removing ${projectpath}/${dockerdir}/venv_lib.tar.gz ..."
-        if $(rm ${projectpath}/${dockerdir}/venv_lib.tar.gz); then
-            echo "${projectpath}/${dockerdir}/venv_lib.tar.gz removed"
-        else
-            echo "Error: failed to remove ${projectpath}/${dockerdir}/venv_lib.tar.gz; check file and directory permissions"
-            exit 1
-        fi
-    fi
-    if [ -f "${projectpath}/${dockerdir}/venv_local.tar.gz" ]; then
-        echo "Removing ${projectpath}/${dockerdir}/venv_local.tar.gz ..."
-        if $(rm ${projectpath}/${dockerdir}/venv_local.tar.gz); then
-            echo "${projectpath}/${dockerdir}/venv_local.tar.gz removed"
-        else
-            echo "Error: failed to remove ${projectpath}/${dockerdir}/venv_local.tar.gz; check file and directory permissions"
+            echo "Error: failed to remove ${projectpath}/${dockerdir}/${venv}.sys.tar.gz; check file and directory permissions"
             exit 1
         fi
     fi
@@ -251,49 +224,6 @@ clean_build() {
         else
             echo "Warning: failed to remove ${projectpath}/${dockerdir}; directory may not be empty"
         fi
-    fi
-}
-
-# expects a directory path in $1, patches any text file in the
-# directory and subdirectories that contains the hard-coded
-# virtualenv interpreter path
-patch_paths() {
-    echo "Patching environment paths in $1 ..."
-    files=$(grep ${venv_root} -l --recursive --exclude=*.pyc $1)
-    for file in $files; do
-        echo "Patching $file ..."
-        sed -i"" -e "s:${venv_root}:${lib_path}:g" $file
-    done
-}
-
-# expects a directory path in $1, folder name in $2, tmp dir name in
-# $3, archive name in $4, stages the folder in temp, patches the paths, and
-# then zips it into the build directory.
-process_venv_directory() {
-    local base_dir=${1}
-    local venv_dir=${2}
-    local tmp_dir=${3}
-    local zip_name=${4}
-
-    echo "Staging ${base_dir}${venv_dir} to ${tmp_dir} ..."
-    if $( tar -c --directory=${base_dir} ./${venv_dir} --exclude=*.pyc | tar -x --directory=${tmp_dir} ); then
-        patch_paths ${tmp_dir}/${venv_dir}
-        echo "Packing ${tmp_dir}/${venv_dir} to ${projectpath}/${dockerdir} ..."
-        if $(tar -c --directory=${tmp_dir} ./${venv_dir} | gzip > ${projectpath}/${dockerdir}/${zip_name}.tar.gz); then
-            echo "${base_dir}${venv_dir} complete"
-            echo "Removing temporary files ..."
-            if $(rm -rf ${tmp_dir}/${venv_dir}); then
-                echo "Temporary files in ${tmp_dir}/${venv_dir} removed"
-            else
-                echo "Warning: unable to remove staging folder ${tmp_dir}/${venv_dir}"
-            fi
-        else
-            echo "Error: failed to pack ${tmp_dir}/${venv_dir}; check directory and file permissions."
-            exit 1
-        fi
-    else
-        echo "Error: failed to copy ${base_dir}/${venv_dir} to ${tmp_dir}; check directory and file permissions."
-        exit 1
     fi
 }
 
@@ -350,28 +280,34 @@ setup_build() {
 
     echo "Packing system files ..."
 
-    if [ -d "${venv_root}${venv}/bin" ]; then
-        process_venv_directory ${venv_root} ${venv}/bin ${tmpdir} venv_bin
+    echo "Copying ${venv_root}${venv} to ${tmpdir} ..."
+    if $( tar -c --directory=${venv_root} ./${venv} --exclude=*.pyc | tar -x --directory=${tmpdir} ); then
+        echo "${venv_root}${venv} copied."
     else
-        echo "Warning: ${venv_root}${venv}/bin not found; skipping"
+        echo "Error: failed to copy ${venv_root}${venv} to ${tmpdir}; check directory and file permissions."
+        exit 1
     fi
 
-    if [ -d "${venv_root}${venv}/include" ]; then
-        process_venv_directory ${venv_root} ${venv}/include ${tmpdir} venv_include
+    echo "Patching environment paths in ${tmpdir}/${venv} ..."
+    files=$(grep ${venv_root} -l --recursive --exclude=*.pyc ${tmpdir}/${venv})
+    for file in $files; do
+        echo "Patching $file ..."
+        sed -i"" -e "s:${venv_root}:${lib_path}:g" $file
+    done
+
+    echo "Packing ${tmpdir}/${venv} to ${projectpath}/${dockerdir} ..."
+    if $(tar -c --directory=${tmpdir} ./${venv_dir} | gzip > ${projectpath}/${dockerdir}/${venv}.sys.tar.gz); then
+        echo "${tmpdir}/${venv} complete"
     else
-        echo "Warning: ${venv_root}${venv}/include not found; skipping"
+        echo "Error: failed to pack ${tmpdir}/${venv}; check directory and file permissions."
+        exit 1
     fi
 
-    if [ -d "${venv_root}${venv}/lib" ]; then
-        process_venv_directory ${venv_root} ${venv}/lib ${tmpdir} venv_lib
+    echo "Removing temporary files ..."
+    if $(rm -rf ${tmpdir}/${venv}); then
+        echo "Temporary files in ${tmpdir}/${venv} removed"
     else
-        echo "Warning: ${venv_root}${venv}/lib not found; skipping"
-    fi
-
-    if [ -d "${venv_root}${venv}/local" ]; then
-        process_venv_directory ${venv_root} ${venv}/local ${tmpdir} venv_local
-    else
-        echo "Warning: ${venv_root}${venv}/local not found; skipping"
+        echo "Warning: unable to remove staging folder ${tmpdir}/${venv}"
     fi
 
     echo "Removing temporary directory ..."
@@ -488,26 +424,12 @@ emit_dockerfile_install_commands() {
             python_paths+=("${bin_path}${projectdir}")
         fi
     fi
-    if [ -f "venv_bin.tar.gz" ]; then
-        echo "Adding venv_bin.tar.gz"
-        dockerfile+=("COPY venv_bin.tar.gz ${lib_path}")
-        dockerfile+=("RUN cd ${lib_path} && tar xfz venv_bin.tar.gz && rm venv_bin.tar.gz")
-        sys_paths+=("${lib_path}${projectdir}/bin")
-    fi
-    if [ -f "venv_include.tar.gz" ]; then
-        echo "Adding venv_include.tar.gz"
-        dockerfile+=("COPY venv_include.tar.gz ${lib_path}")
-        dockerfile+=("RUN cd ${lib_path} && tar xfz venv_include.tar.gz && rm venv_include.tar.gz")
-    fi
-    if [ -f "venv_lib.tar.gz" ]; then
-        echo "Adding venv_lib.tar.gz"
-        dockerfile+=("COPY venv_lib.tar.gz ${lib_path}")
-        dockerfile+=("RUN cd ${lib_path} && tar xfz venv_lib.tar.gz && rm venv_lib.tar.gz")
-    fi
-    if [ -f "venv_local.tar.gz" ]; then
-        echo "Adding venv_local.tar.gz"
-        dockerfile+=("COPY venv_local.tar.gz ${lib_path}")
-        dockerfile+=("RUN cd ${lib_path} && tar xfz venv_local.tar.gz && rm venv_local.tar.gz")
+    if [ -f "${venv}.sys.tar.gz" ]; then
+        echo "Adding ${venv}.sys.tar.gz"
+        dockerfile+=("COPY ${venv}.sys.tar.gz ${lib_path}")
+        dockerfile+=("RUN cd ${lib_path} && tar xfz ${venv}.sys.tar.gz && rm ${venv}.sys.tar.gz && \\ ")
+        dockerfile+=("echo ${bin_path}${projectdir} > ${lib_path}${venv}/.project")
+        sys_paths+=("${lib_path}${venv}/bin")
     fi
 }
 
@@ -521,7 +443,7 @@ emit_dockerfile_env_vars() {
 
         # don't know if it's useful to set these or not but it seemed
         # sensible
-        dockerfile+=("ENV VIRTUAL_ENV ${lib_path}/${venv}")
+        dockerfile+=("ENV VIRTUAL_ENV ${lib_path}${venv}")
         dockerfile+=("ENV VIRTUALENVWRAPPER_HOOK_DIR ${lib_path}")
 
         env_split=($(echo ${envs} | tr "," "\n"))
@@ -542,12 +464,12 @@ emit_dockerfile_link_fix() {
     echo "Replacing local/ symlinks ..."
     dockerfile+=(" ")
     dockerfile+=("# fix virtualenv symlinks")
-    dockerfile+=("RUN rm ${lib_path}${projectdir}/local/bin && \\ ")
-    dockerfile+=("ln -s ${lib_path}${projectdir}/bin ${lib_path}${projectdir}/local/bin && \\ ")
-    dockerfile+=("rm ${lib_path}${projectdir}/local/include && \\ ")
-    dockerfile+=("ln -s ${lib_path}${projectdir}/include ${lib_path}${projectdir}/local/include && \\ ")
-    dockerfile+=("rm ${lib_path}${projectdir}/local/lib && \\ ")
-    dockerfile+=("ln -s ${lib_path}${projectdir}/lib ${lib_path}${projectdir}/local/lib")
+    dockerfile+=("RUN rm ${lib_path}${venv}/local/bin && \\ ")
+    dockerfile+=("ln -s ${lib_path}${venv}/bin ${lib_path}${venv}/local/bin && \\ ")
+    dockerfile+=("rm ${lib_path}${venv}/local/include && \\ ")
+    dockerfile+=("ln -s ${lib_path}${venv}/include ${lib_path}${venv}/local/include && \\ ")
+    dockerfile+=("rm ${lib_path}${venv}/local/lib && \\ ")
+    dockerfile+=("ln -s ${lib_path}${venv}/lib ${lib_path}${venv}/local/lib")
 }
 
 # create the dockerfile commands to expose any ports required
@@ -989,7 +911,6 @@ confirm_make() {
     esac
 }
 
-echo
 echo "venv2docker ${version}"
 echo
 ensure_docker

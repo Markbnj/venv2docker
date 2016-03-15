@@ -111,10 +111,12 @@ Options:
     --lib-path=PATH         Install the venv directories to PATH in the image.
     --maintainer=NAME       Use NAME as the maintainer string in the image.
     -n, --name=NAME         Use NAME as the committed image name.
+    --no-cleanup-on-error   On error do not remove temporary files.
     --no-dangling           Remove an existing image before building.
     --no-log                Don't log docker build output.
     --no-project-path       Don't add the project root to the system path.
     --no-project-pypath     Don't add the project root to the python path.
+    --no-remove-build-dir   Don't remove the build directory after building.
     --paths=PATHS           Add PATHS to system path.
     --pip=FILE              Install each package in FILE at build.
     --ports=PORTS           Expose PORTS in image.
@@ -548,6 +550,19 @@ then venv2docker will use the virtualenv name.
 
 ----
 
+###### --no-cleanup-on-error
+
+Example:
+
+`venv2docker --no-cleanup-on-error my_test_env`
+
+The normal behavior of venv2docker is to clean up after itself as much as it
+can. If an error occurs the script will remove temporary files created up to
+the point where the error occurred. Sometimes retaining these files may help
+solve an error. Use this argument to prevent removing temporary files.
+
+----
+
 ###### --no-dangling
 
 Example:
@@ -598,6 +613,19 @@ By default venv2docker will add the root folder of your project to the PYTHONPAT
 variable inside the image. Using the default settings this folder will be
 /usr/local/bin/my_project. Use this option to prevent adding the folder to the
 python path.
+
+----
+
+###### --no-remove-build-dir
+
+Example:
+
+`venv2docker --no-remove-build-dir my_test_env`
+
+The default behavior of venv2docker is to remove the build folder that it creates
+in the project path. This folder is named .venv2docker by default, and contains
+the tar'd project and system files, the generated dockerfile, and a build log of
+the docker build output. Use this argument to prevent removing this folder.
 
 ----
 

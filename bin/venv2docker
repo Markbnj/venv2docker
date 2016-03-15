@@ -19,8 +19,8 @@ venv_root="${VIRTUALENVWRAPPER_HOOK_DIR}/"
 image_name=
 tag="latest"
 venv=
-projectpath=
-projectdir=
+project_path=
+project_dir=
 default_base="debian:jessie"
 base=$default_base
 entrypoint=
@@ -34,7 +34,8 @@ log_name="build.log"
 args=
 ports=
 envs=
-dockerdir=".venv2docker"
+build_dir=".venv2docker"
+tmp_dir=
 dockerfile=
 maintainer=
 bin_path="/usr/local/bin/"
@@ -52,6 +53,8 @@ workdir=
 no_project_path=false
 no_project_pypath=false
 no_prompt=false
+no_clean_on_err=false
+no_remove_build_dir=false
 
 # display the main help screen
 show_help() {
@@ -78,16 +81,18 @@ show_help() {
     printf "\t--bin-path=PATH\t\t\tInstall the project folder to PATH in the image.\n"
     printf "\t-c, --clean\t\t\t\tPerform build clean step and exit.\n"
     printf "\t-d, --debug\t\t\t\tPrint diagnostic information after build.\n"
-    printf "\t--dockerdir=PATH\t\tUse DIR for build files (defaults to .venv2docker).\n"
+    printf "\t--build_dir=PATH\t\tUse DIR for build files (defaults to .venv2docker).\n"
     printf "\t--entrypoint=COMMAND\tExecute COMMAND as entrypoint at startup.\n"
     printf "\t-e, --env=ENV\t\t\tSet variables in ENV inside image.\n"
     printf "\t--lib-path=PATH\t\t\tInstall the venv directories to PATH in the image.\n"
     printf "\t--maintainer=NAME\t\tUse NAME as the maintainer string in the image.\n"
     printf "\t-n, --name=NAME\t\t\tUse NAME as the committed image name.\n"
+    printf "\t--no-cleanup-on-error\t\tDo not remove temp files after an error.\n"
     printf "\t--no-dangling\t\t\tRemove an existing image before building.\n"
     printf "\t--no-log\t\t\t\tDon't log docker build output.\n"
     printf "\t--no-project-path\t\tDon't add the project root to the system path.\n"
     printf "\t--no-project-pypath\t\tDon't add the project root to the python path.\n"
+    printf "\t--no-remove-build-dir\t\tDon't remove the build directory after building.\n"
     printf "\t--paths=PATHS\t\t\tAdd PATHS to system path.\n"
     printf "\t--pip=FILE\t\t\t\tInstall each package in FILE at build.\n"
     printf "\t--ports=PORTS\t\t\tExpose PORTS in image.\n"
@@ -160,158 +165,186 @@ ensure_venv() {
         fi
     fi
     # get the project directory from the virtualenv
-    projectpath=$(cat ${venv_root}${venv}/${VIRTUALENVWRAPPER_PROJECT_FILENAME})
-    if [ -z "${projectpath}" ]; then
+    project_path=$(cat ${venv_root}${venv}/${VIRTUALENVWRAPPER_PROJECT_FILENAME})
+    if [ -z "${project_path}" ]; then
         echo "Error: could not find project home for env $venv"
         exit 1
     fi
-    projectdir=$(basename ${projectpath})
+    project_dir=$(basename ${project_path})
 }
 
 # if the docker build directory already exists get rid of anything
 # we're going to recreate on this run.
 clean_build() {
-    echo "Running clean on ${projectpath}/${dockerdir} ..."
-    if [ -f "${projectpath}/${dockerdir}/${projectdir}.tar.gz" ]; then
-        echo "Removing ${projectpath}/${dockerdir}/${projectdir}.tar.gz ..."
-        if $(rm ${projectpath}/${dockerdir}/${projectdir}.tar.gz); then
-            echo "${projectpath}/${dockerdir}/${projectdir}.tar.gz removed"
+    echo "Running clean on ${project_path}/${build_dir} ..."
+    if [ -f "${project_path}/${build_dir}/${project_dir}.tar.gz" ]; then
+        echo "Removing ${project_path}/${build_dir}/${project_dir}.tar.gz ..."
+        if $(rm ${project_path}/${build_dir}/${project_dir}.tar.gz); then
+            echo "${project_path}/${build_dir}/${project_dir}.tar.gz removed"
         else
-            echo "Error: failed to remove ${projectpath}/${dockerdir}/${projectdir}.tar.gz; check file and directory permissions"
+            echo "Error: failed to remove ${project_path}/${build_dir}/${project_dir}.tar.gz; check file and directory permissions"
             exit 1
         fi
     fi
-    if [ -f "${projectpath}/${dockerdir}/${venv}.sys.tar.gz" ]; then
-        echo "Removing ${projectpath}/${dockerdir}/${venv}.sys.tar.gz ..."
-        if $(rm ${projectpath}/${dockerdir}/${venv}.sys.tar.gz); then
-            echo "${projectpath}/${dockerdir}/${venv}.sys.tar.gz removed"
+    if [ -f "${project_path}/${build_dir}/${venv}.sys.tar.gz" ]; then
+        echo "Removing ${project_path}/${build_dir}/${venv}.sys.tar.gz ..."
+        if $(rm ${project_path}/${build_dir}/${venv}.sys.tar.gz); then
+            echo "${project_path}/${build_dir}/${venv}.sys.tar.gz removed"
         else
-            echo "Error: failed to remove ${projectpath}/${dockerdir}/${venv}.sys.tar.gz; check file and directory permissions"
+            echo "Error: failed to remove ${project_path}/${build_dir}/${venv}.sys.tar.gz; check file and directory permissions"
             exit 1
         fi
     fi
-    if [ -f "${projectpath}/${dockerdir}/requirements.txt" ]; then
+    if [ -f "${project_path}/${build_dir}/requirements.txt" ]; then
         echo "Removing pip requirements file ..."
-        if $(rm ${projectpath}/${dockerdir}/requirements.txt); then
+        if $(rm ${project_path}/${build_dir}/requirements.txt); then
             echo "pip requirements file removed"
         else
-            echo "Error: failed to remove ${projectpath}/${dockerdir}/requirements.txt; check file and directory permissions"
+            echo "Error: failed to remove ${project_path}/${build_dir}/requirements.txt; check file and directory permissions"
             exit 1
         fi
     fi
-    if [ -f "${projectpath}/${dockerdir}/build.log" ]; then
+    if [ -f "${project_path}/${build_dir}/build.log" ]; then
         echo "Removing old build log ..."
-        if $(rm ${projectpath}/${dockerdir}/build.log); then
+        if $(rm ${project_path}/${build_dir}/build.log); then
             echo "build log removed"
         else
-            echo "Error: failed to remove ${projectpath}/${dockerdir}/build.log; check file and directory permissions"
+            echo "Error: failed to remove ${project_path}/${build_dir}/build.log; check file and directory permissions"
             exit 1
         fi
     fi
-    if [ -f "${projectpath}/${dockerdir}/Dockerfile" ]; then
+    if [ -f "${project_path}/${build_dir}/Dockerfile" ]; then
         echo "Removing old dockerfile ..."
-        if $(rm ${projectpath}/${dockerdir}/Dockerfile); then
+        if $(rm ${project_path}/${build_dir}/Dockerfile); then
             echo "dockerfile removed"
         else
-            echo "Error: failed to remove ${projectpath}/${dockerdir}/Dockerfile; check file and directory permissions"
+            echo "Error: failed to remove ${project_path}/${build_dir}/Dockerfile; check file and directory permissions"
             exit 1
         fi
     fi
-    if [ -d "${projectpath}/${dockerdir}" ]; then
+    if [ -d "${project_path}/${build_dir}" ]; then
         echo "Removing build directory ..."
-        if $(rmdir ${projectpath}/${dockerdir}); then
+        if $(rmdir ${project_path}/${build_dir}); then
             echo "Build directory removed"
         else
-            echo "Warning: failed to remove ${projectpath}/${dockerdir}; directory may not be empty"
+            echo "Warning: failed to remove ${project_path}/${build_dir}; directory may not be empty"
         fi
+    fi
+}
+
+# called when an error in a command forces the script to cease executing
+# the normal behavior is to clean up the temporary folders, and to clean
+# up the build folder based on the --no-remove-build-dir setting
+conditional_clean_on_error() {
+    if [ "${no_clean_on_err}" = "false" ]; then
+        echo "Removing temporary files ..."
+        if $(rm -rf ${tmp_dir}); then
+            echo "Temporary files removed."
+        else
+            echo "Warning: unable to remove ${tmp_dir}."
+        fi
+    else
+        echo "Leaving temporary files in ${tmp_dir}."
+    fi
+    if [ "${no_clean_on_err}" = "false" ] && [ "${no_remove_build_dir}" = "false" ]; then
+        echo "Removing build files ..."
+        clean_build
+    else
+        echo "Leaving build files in ${project_path}/${build_dir}."
     fi
 }
 
 # stage the project directories to tmp, create the docker directory, and then
 # pack the project and system files into the docker directory.
 setup_build() {
-    tmpdir=$(mktemp -d)
+    tmp_dir=$(mktemp -d)
 
     # if the build folder exists clean it out, this may remove the folder
     # but will not if the user has copied anything to it, so we still
     # use --exclude on the tar command below
-    if [ -d "${projectpath}/${dockerdir}" ]; then
+    if [ -d "${project_path}/${build_dir}" ]; then
         clean_build
     fi
 
     # stage the project files in tmp - we check for the project path because
     # its at least possible it might not exist, and that all the user wants
     # is the virtualenv
-    if [ -d "${projectpath}" ]; then
-        echo "Staging ${projectpath} to ${tmpdir} ..."
-        if $( tar -c --directory=${projectpath} ../${projectdir} --exclude=*.pyc --exclude=./${projectdir}/${dockerdir} | tar -x --directory=${tmpdir} ); then
-            echo "${projectpath} complete"
+    if [ -d "${project_path}" ]; then
+        echo "Staging ${project_path} to ${tmp_dir} ..."
+        if $( tar -c --directory=${project_path} ../${project_dir} --exclude=*.pyc --exclude=./${project_dir}/${build_dir} | tar -x --directory=${tmp_dir} ); then
+            echo "${project_path} complete"
         else
-            echo "Error: failed to copy ${projectpath} to ${tmpdir}; check directory and file permissions."
+            echo "Error: failed to copy ${project_path} to ${tmp_dir}; check directory and file permissions."
+            conditional_clean_on_error
             exit 1
         fi
     else
-        echo "Warning: ${projectpath} not found; skipping"
+        echo "Warning: ${project_path} not found; skipping"
     fi
 
-    # create the build folder if we don't have it
-    if [ ! -d "${projectpath}/${dockerdir}" ]; then
+    # create the build folder, check to see if it exists because if the user
+    # copied anything to it then it may not have been removed during clean
+    if [ ! -d "${project_path}/${build_dir}" ]; then
         echo "Creating build directory ..."
-        mkdir ${projectpath}/${dockerdir}
+        mkdir ${project_path}/${build_dir}
     fi
 
     # if we didn't skip the project files above then this path exists, so pack it
     # into the build folder
-    if [ -d "${tmpdir}/${projectdir}" ]; then
+    if [ -d "${tmp_dir}/${project_dir}" ]; then
         echo "Packing project files ..."
-        if $(tar -c --directory=${tmpdir} ./${projectdir} | gzip > ${projectpath}/${dockerdir}/${projectdir}.tar.gz); then
-            echo "${tmpdir}/${projectdir} complete"
+        if $(tar -c --directory=${tmp_dir} ./${project_dir} | gzip > ${project_path}/${build_dir}/${project_dir}.tar.gz); then
+            echo "${tmp_dir}/${project_dir} complete"
         else
-            echo "Error: failed to pack ${tmpdir}/${projectdir}; check directory and file permissions."
+            echo "Error: failed to pack ${tmp_dir}/${project_dir}; check directory and file permissions."
+            conditional_clean_on_error
             exit 1
         fi
         echo "Removing temporary files ..."
-        if $(rm -rf ${tmpdir}/${projectdir}); then
-            echo "Temporary files in ${tmpdir}/${projectdir} removed"
+        if $(rm -rf ${tmp_dir}/${project_dir}); then
+            echo "Temporary files in ${tmp_dir}/${project_dir} removed"
         else
-            echo "Warning: unable to remove staging folder ${tmpdir}/${projectdir}"
+            echo "Warning: unable to remove staging folder ${tmp_dir}/${project_dir}"
         fi
     fi
 
+    # now copy the venv files to tmp and patch the paths to work inside the image
     echo "Packing system files ..."
 
-    echo "Copying ${venv_root}${venv} to ${tmpdir} ..."
-    if $( tar -c --directory=${venv_root} ./${venv} --exclude=*.pyc | tar -x --directory=${tmpdir} ); then
+    echo "Copying ${venv_root}${venv} to ${tmp_dir} ..."
+    if $( tar -c --directory=${venv_root} ./${venv} --exclude=*.pyc | tar -x --directory=${tmp_dir} ); then
         echo "${venv_root}${venv} copied."
     else
-        echo "Error: failed to copy ${venv_root}${venv} to ${tmpdir}; check directory and file permissions."
+        echo "Error: failed to copy ${venv_root}${venv} to ${tmp_dir}; check directory and file permissions."
+        conditional_clean_on_error
         exit 1
     fi
 
-    echo "Patching environment paths in ${tmpdir}/${venv} ..."
-    files=$(grep ${venv_root} -l --recursive --exclude=*.pyc ${tmpdir}/${venv})
+    echo "Patching environment paths in ${tmp_dir}/${venv} ..."
+    files=$(grep ${venv_root} -l --recursive --exclude=*.pyc ${tmp_dir}/${venv})
     for file in $files; do
-        echo "Patching $file ..."
-        sed -i"" -e "s:${venv_root}:${lib_path}:g" $file
+        echo "Patching ${file} ..."
+        if $(sed -i"" -e "s:${venv_root}:${lib_path}:g" ${file}); then
+            echo "${file} patched."
+        else
+            echo "Error: failed to patch ${file}."
+            conditional_clean_on_error
+            exit 1
+        fi
     done
 
-    echo "Packing ${tmpdir}/${venv} to ${projectpath}/${dockerdir} ..."
-    if $(tar -c --directory=${tmpdir} ./${venv_dir} | gzip > ${projectpath}/${dockerdir}/${venv}.sys.tar.gz); then
-        echo "${tmpdir}/${venv} complete"
+    echo "Packing ${tmp_dir}/${venv} to ${project_path}/${build_dir} ..."
+    if $(tar -c --directory=${tmp_dir} ./${venv_dir} | gzip > ${project_path}/${build_dir}/${venv}.sys.tar.gz); then
+        echo "${tmp_dir}/${venv} complete"
     else
-        echo "Error: failed to pack ${tmpdir}/${venv}; check directory and file permissions."
+        echo "Error: failed to pack ${tmp_dir}/${venv}; check directory and file permissions."
+        conditional_clean_on_error
         exit 1
-    fi
-
-    echo "Removing temporary files ..."
-    if $(rm -rf ${tmpdir}/${venv}); then
-        echo "Temporary files in ${tmpdir}/${venv} removed"
-    else
-        echo "Warning: unable to remove staging folder ${tmpdir}/${venv}"
     fi
 
     echo "Removing temporary directory ..."
-    rm -rf ${tmpdir}
+    rm -rf ${tmp_dir}
+
     echo "System files completed"
 }
 
@@ -320,7 +353,7 @@ emit_dockerfile_header() {
     dockerfile=("#")
     dockerfile+=("# generated on: $(date)")
     dockerfile+=("#")
-    dockerfile+=("# project path: ${projectpath}")
+    dockerfile+=("# project path: ${project_path}")
     dockerfile+=("# venv path: ${venv}")
     dockerfile+=("# image name: ${image_name}")
     dockerfile+=("# script version: ${version}")
@@ -348,7 +381,7 @@ emit_dockerfile_apt_reqs() {
             if [[ $apt == "/*" ]]; then
                 apt_path=$apt
             else
-                apt_path=$projectpath/$apt
+                apt_path=$project_path/$apt
             fi
             if [ -f "${apt_path}" ]; then
                 echo "Adding apt packages in ${apt_path} ..."
@@ -387,16 +420,16 @@ emit_dockerfile_pip_reqs() {
         if [[ $pip == "/*" ]]; then
             pip_path=$pip
         else
-            pip_path=$projectpath/$pip
+            pip_path=$project_path/$pip
         fi
         if [ -f "${pip_path}" ]; then
             echo "Adding pip requirements file ${pip_path} ..."
-            cp ${pip_path} ${projectpath}/${dockerdir}/requirements.txt
+            cp ${pip_path} ${project_path}/${build_dir}/requirements.txt
             dockerfile+=(" ")
             dockerfile+=("# pip dependencies")
-            dockerfile+=("ADD requirements.txt ${lib_path}${projectdir}")
-            dockerfile+=("RUN pip install -qr ${lib_path}${projectdir}/requirements.txt")
-            dockerfile+=("RUN rm ${lib_path}${projectdir}/requirements.txt")
+            dockerfile+=("ADD requirements.txt ${lib_path}${project_dir}")
+            dockerfile+=("RUN pip install -qr ${lib_path}${project_dir}/requirements.txt")
+            dockerfile+=("RUN rm ${lib_path}${project_dir}/requirements.txt")
         else
             echo "Error: pip requirements file ${pip_path} not found"
             cd ${cwd}
@@ -413,22 +446,22 @@ emit_dockerfile_install_commands() {
     echo "Creating project install commands ..."
     dockerfile+=(" ")
     dockerfile+=("# python project and dependencies")
-    if [ -f "${projectdir}.tar.gz" ]; then
-        echo "Adding ${projectdir}.tar.gz"
-        dockerfile+=("COPY ${projectdir}.tar.gz ${bin_path}")
-        dockerfile+=("RUN cd ${bin_path} && tar xfz ${projectdir}.tar.gz && rm ${projectdir}.tar.gz")
+    if [ -f "${project_dir}.tar.gz" ]; then
+        echo "Adding ${project_dir}.tar.gz"
+        dockerfile+=("COPY ${project_dir}.tar.gz ${bin_path}")
+        dockerfile+=("RUN cd ${bin_path} && tar xfz ${project_dir}.tar.gz && rm ${project_dir}.tar.gz")
         if [ "$no_project_path" = "false" ]; then
-            sys_paths+=("${bin_path}${projectdir}")
+            sys_paths+=("${bin_path}${project_dir}")
         fi
         if [ "$no_project_pypath" = "false" ]; then
-            python_paths+=("${bin_path}${projectdir}")
+            python_paths+=("${bin_path}${project_dir}")
         fi
     fi
     if [ -f "${venv}.sys.tar.gz" ]; then
         echo "Adding ${venv}.sys.tar.gz"
         dockerfile+=("COPY ${venv}.sys.tar.gz ${lib_path}")
         dockerfile+=("RUN cd ${lib_path} && tar xfz ${venv}.sys.tar.gz && rm ${venv}.sys.tar.gz && \\ ")
-        dockerfile+=("echo ${bin_path}${projectdir} > ${lib_path}${venv}/.project")
+        dockerfile+=("echo ${bin_path}${project_dir} > ${lib_path}${venv}/.project")
         sys_paths+=("${lib_path}${venv}/bin")
     fi
 }
@@ -556,7 +589,7 @@ emit_dockerfile_workdir() {
     if [ ! -z "${workdir}" ]; then
         setcmd=${setcmd}${workdir}
     else
-        setcmd=${setcmd}${bin_path}${projectdir}
+        setcmd=${setcmd}${bin_path}${project_dir}
     fi
     dockerfile+=("${setcmd}")
     unset setcmd
@@ -600,13 +633,13 @@ emit_dockerfile() {
     emit_dockerfile_workdir
     emit_dockerfile_entrypoint
 
-    if $(echo "# venv2docker generated dockerfile" > ${projectpath}/${dockerdir}/Dockerfile); then
+    if $(echo "# venv2docker generated dockerfile" > ${project_path}/${build_dir}/Dockerfile); then
         for line in ${dockerfile[@]}; do
-            printf "${line}\n" >> ${projectpath}/${dockerdir}/Dockerfile
+            printf "${line}\n" >> ${project_path}/${build_dir}/Dockerfile
         done
-        echo "${projectpath}/${dockerdir}/Dockerfile created"
+        echo "${project_path}/${build_dir}/Dockerfile created"
     else
-        echo "Error: failed to write ${projectpath}/${dockerdir}/Dockerfile; check file and directory permissions."
+        echo "Error: failed to write ${project_path}/${build_dir}/Dockerfile; check file and directory permissions."
         cd ${cwd}
         exit 1
     fi
@@ -631,7 +664,7 @@ remove_existing_image() {
 # generated dockerfile
 build_image() {
     if [ "$no_image" = "false" ]; then
-        if [ -f "${projectpath}/${dockerdir}/Dockerfile" ]; then
+        if [ -f "${project_path}/${build_dir}/Dockerfile" ]; then
             if [ "$rem_old_image" = "true" ]; then
                 remove_existing_image
             fi
@@ -689,8 +722,8 @@ write_debug_info() {
     echo "image name: ${image_name}"
     echo "tag: ${tag}"
     echo "venv: ${venv}"
-    echo "projectpath: ${projectpath}"
-    echo "projectdir: ${projectdir}"
+    echo "project_path: ${project_path}"
+    echo "project_dir: ${project_dir}"
     echo "base: ${base}"
     echo "entrypoint: ${entrypoint}"
     echo "args: ${args}"
@@ -701,7 +734,7 @@ write_debug_info() {
     echo "log_build: ${log_build}"
     echo "ports: ${ports}"
     echo "envs: ${envs}"
-    echo "dockerdir: ${dockerdir}"
+    echo "build_dir: ${build_dir}"
     echo "maintainer: ${maintainer}"
     echo "bin_path: ${bin_path}"
     echo "lib_path: ${lib_path}"
@@ -723,10 +756,13 @@ make_image() {
     fi
 
     setup_build
-    echo "Entering directory ${projectpath}/${dockerdir}"
-    cd ${projectpath}/${dockerdir}
+    echo "Entering directory ${project_path}/${build_dir}"
+    cd ${project_path}/${build_dir}
     emit_dockerfile
     build_image
+    if [ "${no_remove_build_dir}" = "false" ]; then
+        clean_build
+    fi
     post_build_banner
 
     if [ "$debug" = "true" ]; then
@@ -740,7 +776,7 @@ make_image() {
 tabs 4
 
 # parse out the options
-OPTS=$(getopt -o b:cde:hn:prst:u:w:y --long apt:,args:,base:,bin-path:,clean,command:,debug,dockerdir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,no-dangling,no-log,no-project-path,no-project-pypath,no-prompt,paths:,pip:,ports:,push,pypaths:,skip-image,tag:,user:,workdir: -- "$@")
+OPTS=$(getopt -o b:cde:hn:prst:u:w:y --long apt:,args:,base:,bin-path:,clean,command:,debug,build_dir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,no-cleanup-on-error,no-dangling,no-log,no-project-path,no-project-pypath,no-prompt,no-remove-build-dir,paths:,pip:,ports:,push,pypaths:,skip-image,tag:,user:,workdir: -- "$@")
 if [[ $? -ne 0 ]]; then
     echo "Error: failed to parse command line options."
     exit 1
@@ -776,8 +812,8 @@ while true; do
             debug=true
             shift
             ;;
-        --dockerdir)
-            dockerdir="$2"
+        --build_dir)
+            build_dir="$2"
             shift; shift
             ;;
         --entrypoint)
@@ -806,6 +842,10 @@ while true; do
             image_name="$2"
             shift; shift
             ;;
+        --no-cleanup-on-error)
+            no_clean_on_err=true
+            shift
+            ;;
         --no-dangling)
             rem_old_image=true
             shift
@@ -820,6 +860,10 @@ while true; do
             ;;
         --no-project-pypath)
             no_project_pypath=true
+            shift
+            ;;
+        --no-remove-build-dir)
+            no_remove_build_dir=true
             shift
             ;;
         --paths)
@@ -897,7 +941,7 @@ confirm_make() {
     echo "----------------------------------"
     echo "venv name: ${venv}"
     echo "venv path: ${venv_root}${venv}"
-    echo "project path: ${projectpath}"
+    echo "project path: ${project_path}"
     echo "image name: ${image_name}"
     echo "image tag: ${tag}"
     echo "base image: ${base}"

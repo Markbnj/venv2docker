@@ -122,7 +122,6 @@ Options:
     --ports=PORTS           Expose PORTS in image.
     -p, --push              Push the image to the Docker hub after building.
     --pypaths=PATHS         Add PATHS to python path.
-    -r, --run               Launch the image after building.
     -s, --skip-image        Generate the dockerfile but skip building.
     -t, --tag=TAG           Use TAG as the tag for the built image.
     -u, --user=USER         Change to USER before running entrypoint.
@@ -684,16 +683,6 @@ Example:
 
 Use this argument to specify additional paths to be added to the python path inside
 the image. Paths must be absolute and separated by commas.
-
-----
-
-###### -r|--run
-
-Example:
-
-`venv2docker --run my_test_env`
-
-NOT IMPLEMENTED AT THIS TIME.
 
 ----
 

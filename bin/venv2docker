@@ -26,7 +26,6 @@ base=$default_base
 entrypoint=
 no_image=false
 push_image=false
-run_image=false
 rem_old_image=false
 debug=false
 log_build=true
@@ -87,18 +86,17 @@ show_help() {
     printf "\t--lib-path=PATH\t\t\tInstall the venv directories to PATH in the image.\n"
     printf "\t--maintainer=NAME\t\tUse NAME as the maintainer string in the image.\n"
     printf "\t-n, --name=NAME\t\t\tUse NAME as the committed image name.\n"
-    printf "\t--no-cleanup-on-error\t\tDo not remove temp files after an error.\n"
+    printf "\t--no-cleanup-on-error\tDo not remove temp files after an error.\n"
     printf "\t--no-dangling\t\t\tRemove an existing image before building.\n"
     printf "\t--no-log\t\t\t\tDon't log docker build output.\n"
     printf "\t--no-project-path\t\tDon't add the project root to the system path.\n"
     printf "\t--no-project-pypath\t\tDon't add the project root to the python path.\n"
-    printf "\t--no-remove-build-dir\t\tDon't remove the build directory after building.\n"
+    printf "\t--no-remove-build-dir\tDon't remove the build directory after building.\n"
     printf "\t--paths=PATHS\t\t\tAdd PATHS to system path.\n"
     printf "\t--pip=FILE\t\t\t\tInstall each package in FILE at build.\n"
     printf "\t--ports=PORTS\t\t\tExpose PORTS in image.\n"
     printf "\t-p, --push\t\t\t\tPush the image to the Docker hub after building.\n"
     printf "\t--pypaths=PATHS\t\t\tAdd PATHS to python path.\n"
-    printf "\t-r, --run\t\t\t\tLaunch the image after building.\n"
     printf "\t-s, --skip-image\t\tGenerate the dockerfile but skip building.\n"
     printf "\t-t, --tag=TAG\t\t\tUse TAG as the tag for the built image.\n"
     printf "\t-u, --user=USER\t\t\tChange to USER before running entrypoint.\n"
@@ -776,7 +774,7 @@ make_image() {
 tabs 4
 
 # parse out the options
-OPTS=$(getopt -o b:cde:hn:prst:u:w:y --long apt:,args:,base:,bin-path:,clean,command:,debug,build_dir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,no-cleanup-on-error,no-dangling,no-log,no-project-path,no-project-pypath,no-prompt,no-remove-build-dir,paths:,pip:,ports:,push,pypaths:,skip-image,tag:,user:,workdir: -- "$@")
+OPTS=$(getopt -o b:cde:hn:pst:u:w:y --long apt:,args:,base:,bin-path:,clean,command:,debug,build_dir:,entrypoint:,env:,help,lib-path:,maintainer:,name:,no-cleanup-on-error,no-dangling,no-log,no-project-path,no-project-pypath,no-prompt,no-remove-build-dir,paths:,pip:,ports:,push,pypaths:,skip-image,tag:,user:,workdir: -- "$@")
 if [[ $? -ne 0 ]]; then
     echo "Error: failed to parse command line options."
     exit 1
@@ -885,10 +883,6 @@ while true; do
         --pypaths)
             pypaths="$2"
             shift; shift
-            ;;
-        -r|--run)
-            run_image=true
-            shift
             ;;
         -s|--skip-image)
             no_image=true

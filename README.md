@@ -7,11 +7,14 @@ container at runtime.
 
 ## Releases
 
+##### [0.1.2-beta](https://github.com/Markbnj/venv2docker/releases/tag/v0.1.2-beta)
+  * 3/15/2016, simplified venv handling, better error checks, some cleanup options.
+
 ##### [0.1.1-beta](https://github.com/Markbnj/venv2docker/releases/tag/0.1.1-beta)
-  * 3/11/2015, added code to install python into debian:jessie by default.
+  * 3/11/2016, added code to install python into debian:jessie by default.
 
 ##### [0.1.0-beta](https://github.com/Markbnj/venv2docker/releases/tag/v0.1.0-beta)
-  * 3/11/2015, first primarily feature-complete release.
+  * 3/11/2016, first primarily feature-complete release.
 
 ## Documentation
 

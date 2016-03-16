@@ -875,12 +875,14 @@ mark@viking:~/workspace/django_v2d$
 ##### Step 7: build the docker image
 
 ```bash
-mark@viking:~/venv2docker/bin$ ./venv2docker --entrypoint=python --args=manage.py,runserver,0.0.0.0:8000 --name=django_v2d --ports=8000 --no-dangling django_v2d
+mark@viking:~/venv2docker/bin$ ./venv2docker --entrypoint=python --args=manage.py,runserver,0.0.0.0:8000 --name=django_v2d --ports=8000 --no-remove-build-dir --no-dangling django_v2d
 ```
 
 Note that an argument is added to tell the django development server to bind to 0.0.0.0 so
 that we can connect from the host system. Without this it will bind to 127.0.0.1 and won't
-be able to accept traffic across the bridge from the host.
+be able to accept traffic across the bridge from the host. Also we use the --no-remove-build-dir
+option so that we can examine the .venv2docker build directory that will be created in the
+project folder. Ordinarily this directory is removed after processing.
 
 After the build completes the image has been added to the local docker repository, and the
 project directory now contains the build directory as shown:
